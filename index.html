@@ -822,9 +822,11 @@ async function loadMatches() {
   } catch(e) {
     matches = JSON.parse(localStorage.getItem('kendo_matches_v6')||'[]');
     indMatches = JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]');
-    opponents = JSON.parse(localStorage.getItem('kendo_opp_v4')||'[]');
+    // ★ 關鍵：localStorage 有資料才覆蓋，否則保留記憶體中現有的選手名單
+    const savedOpp = localStorage.getItem('kendo_opp_v4');
+    if (savedOpp) opponents = JSON.parse(savedOpp);
+    // 若 opponents 仍為空，什麼都不動（保留使用者剛才輸入的名單）
     setCloudStatus('offline');
-    showToast('雲端無法連線，已載入本機備份');
   }
   refreshOpponentDropdowns();
   renderRecords();
@@ -1485,7 +1487,7 @@ async function saveOppCity(){
     closeOppModal();
     renderOpponents();
     refreshOpponentDropdowns();
-    showToast('已儲存並同步到雲端');
+    showToast('選手名單已儲存'); setCloudStatus('online');
   } catch(e) {
     console.error('saveOppCity failed:', e);
     showToast('儲存失敗：' + (e.message || '無法同步到雲端'));
@@ -1615,10 +1617,27 @@ async function saveIndMatch() {
   btn.textContent='儲存中...';btn.disabled=true;
   try {
     const res=await api({action:'saveMatch',matchData:JSON.stringify(match),collection:'ind'});
-    if(!res.success)throw new Error(res.error);
-    showToast('個人賽已儲存');clearIndForm();goPage('ind-records');loadMatches();
-  }catch(e){showToast('儲存失敗：'+e.message);}
-  finally{btn.textContent='儲存個人賽記錄';btn.disabled=false;}
+    if(!res.success) throw new Error(res.error);
+    // 雲端成功 → 更新本機備份
+    match.id = res.data?.id || Date.now();
+    const localInd = JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]');
+    localInd.unshift(match);
+    localStorage.setItem('kendo_ind_matches', JSON.stringify(localInd));
+    indMatches = localInd;
+    setCloudStatus('online');
+  } catch(e) {
+    // 雲端失敗 → 存本機
+    match.id = Date.now();
+    const localInd = JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]');
+    localInd.unshift(match);
+    localStorage.setItem('kendo_ind_matches', JSON.stringify(localInd));
+    indMatches = localInd;
+    setCloudStatus('offline');
+    showToast('雲端失敗，已存本機');
+  } finally {
+    btn.textContent='儲存個人賽記錄'; btn.disabled=false;
+  }
+  clearIndForm(); goPage('ind-records'); renderIndRecords();
 }
 
 function clearIndForm(){
@@ -1689,6 +1708,19 @@ function renderRecords(){
   }).join('');
 }
 
+async function deleteIndMatch(id){
+  if(!confirm('確定刪除此個人賽記錄？')) return;
+  try {
+    await api({action:'deleteMatch', matchId:id, collection:'ind'});
+    setCloudStatus('online');
+  } catch(e) {
+    setCloudStatus('offline');
+  }
+  indMatches = indMatches.filter(m=>String(m.id)!==String(id));
+  localStorage.setItem('kendo_ind_matches', JSON.stringify(indMatches));
+  renderIndRecords();
+  showToast('已刪除');
+}
 function renderIndRecords(){
   const q=(document.getElementById('ind-filter-text').value||'').toLowerCase();
   const rf=document.getElementById('ind-filter-result').value;
