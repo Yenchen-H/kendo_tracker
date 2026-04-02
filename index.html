@@ -600,7 +600,8 @@ body{background:#f7f6f2;font-family:'Noto Sans TC',system-ui,sans-serif;color:#1
             <div style="font-size:12px;color:var(--text2);line-height:1.7">
               目前資料儲存在<strong>本機 localStorage</strong>，換裝置或換瀏覽器後資料不會自動同步。<br>
               若要實現雲端同步，需將上方的 <code style="background:var(--surface);padding:1px 5px;border-radius:3px">API_URL</code> 設定為你的 Google Apps Script 網址：<br>
-              <code style="background:var(--surface);padding:2px 7px;border-radius:3px;font-size:11px;display:inline-block;margin-top:4px">const API_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';</code><br>
+              <code style="background:var(--surface);padding:2px 7px;border-radius:3px;font-size:11px;display:inline-block;margin-top:4px">const RAW_API_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+const API_URL = RAW_API_URL.replace(/https:\/\/script\.google\.com\/a\/macros\/[^\/]+\//, 'https://script.google.com/');</code><br>
               <span style="color:var(--text3);font-size:11px;margin-top:4px;display:block">設定後，所有裝置登入相同密碼即可共用同一份資料庫。在設定完成前，請定期使用「JSON 完整備份」來保存資料。</span>
             </div>
           </div>
@@ -652,7 +653,7 @@ body{background:#f7f6f2;font-family:'Noto Sans TC',system-ui,sans-serif;color:#1
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ════════════════════════════════════════
-const API_URL = 'https://script.google.com/a/macros/gm.ntus.edu.tw/s/AKfycbyAh-XvHIIeKO79_m6kK__TzH1umAb8Nk0shpYYjpeEq9qXXNPzO-YMzJzhUsK_QoIPTw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxwIknnuKj1NMp4F6E4rnU4f-0JfeWcvj0C28pil77up-oG_jWA6xdDb_NfCAU2T1h9lw/exec';
 // ════════════════════════════════════════
 
 const HITS = ['men','do','kote','tsuki'];
@@ -688,7 +689,7 @@ const pendingHits = {};
 
 // ── Login ───────────────────────────────
 async function doLogin() {
-  const pw = document.getElementById('pw-input').value;
+  const pw = document.getElementById('pw-input').value.trim();
   const errEl = document.getElementById('login-error');
   errEl.textContent = '驗證中...';
   try {
@@ -744,7 +745,14 @@ async function api(params) {
     throw new Error(`HTTP ${r.status}`);
   }
 
-  const data = await r.json();
+  let data;
+  try {
+    data = await r.json();
+  } catch (err) {
+    const text = await r.text().catch(() => '');
+    throw new Error('伺服器沒有回傳 JSON，請檢查 Apps Script 部署網址與存取權限');
+  }
+
   if (!data.success) {
     throw new Error(data.error || 'API 錯誤');
   }
