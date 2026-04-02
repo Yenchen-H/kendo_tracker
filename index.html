@@ -50,6 +50,12 @@ body{background:#f7f6f2;font-family:'Noto Sans TC',system-ui,sans-serif;color:#1
 .role-pill.viewer{background:rgba(24,95,165,.25);color:#85c1e9}
 .logout-btn{font-size:11px;color:rgba(255,255,255,.3);cursor:pointer;background:none;border:none;padding:3px 6px;border-radius:4px}
 .logout-btn:hover{color:#fff}
+.cloud-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;transition:background .3s}
+.cloud-status{display:flex;align-items:center;gap:5px;font-size:10px;color:rgba(255,255,255,.35);padding:2px 0}
+.cloud-status.online .cloud-dot{background:#2ecc71;box-shadow:0 0 4px #2ecc71}
+.cloud-status.offline .cloud-dot{background:#e74c3c;box-shadow:0 0 4px #e74c3c}
+.cloud-status.checking .cloud-dot{background:#f39c12;animation:pulse .8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 .main{margin-left:196px;min-height:100vh;padding:1.25rem 1.5rem}
 .page{display:none}.page.active{display:block}
@@ -300,9 +306,15 @@ body{background:#f7f6f2;font-family:'Noto Sans TC',system-ui,sans-serif;color:#1
       <div class="nav-item" id="nav-schedule" data-page="schedule" onclick="goPage('schedule')"><span class="nav-icon">📷</span>賽程圖匯入</div>
       <div class="nav-item" data-page="export" onclick="goPage('export')"><span class="nav-icon">📤</span>匯出報告</div>
     </div>
-    <div class="sb-footer">
-      <span class="role-pill" id="role-pill">—</span>
-      <button class="logout-btn" onclick="doLogout()">登出</button>
+    <div class="sb-footer" style="flex-direction:column;gap:5px;align-items:stretch">
+      <div class="cloud-status checking" id="cloud-status-bar">
+        <span class="cloud-dot"></span>
+        <span id="cloud-status-text">連線中...</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="role-pill" id="role-pill">—</span>
+        <button class="logout-btn" onclick="doLogout()">登出</button>
+      </div>
     </div>
   </nav>
 
@@ -692,14 +704,19 @@ async function doLogin() {
   const pw = document.getElementById('pw-input').value.trim();
   const errEl = document.getElementById('login-error');
   errEl.textContent = '驗證中...';
+  let res = null;
   try {
-    const res = await api({action:'login', password:pw});
-    if (!res.success) throw new Error(res.error||'密碼錯誤');
-    token = res.data.token; userRole = res.data.role;
-    sessionStorage.setItem('kendo_token', token);
-    sessionStorage.setItem('kendo_role', userRole);
-    showApp();
-  } catch(e) { errEl.textContent = e.message||'登入失敗'; }
+    res = await api({action:'login', password:pw});
+    setCloudStatus('online');
+  } catch(e) {
+    res = localFallback({action:'login', password:pw});
+    setCloudStatus('offline');
+  }
+  if (!res?.success) { errEl.textContent = res?.error || '密碼錯誤'; return; }
+  token = res.data.token; userRole = res.data.role;
+  sessionStorage.setItem('kendo_token', token);
+  sessionStorage.setItem('kendo_role', userRole);
+  showApp();
 }
 function doLogout() {
   sessionStorage.clear(); token=''; userRole='';
@@ -795,26 +812,23 @@ async function loadMatches() {
       api({action:'getMatches', collection:'ind'}),
       api({action:'getRosters'})
     ]);
-
     matches = matchRes.data || [];
     indMatches = indMatchRes.data || [];
-
+    opponents = rosterRes.data || [];
     localStorage.setItem('kendo_matches_v6', JSON.stringify(matches));
     localStorage.setItem('kendo_ind_matches', JSON.stringify(indMatches));
-
-    opponents = rosterRes.data || [];
     localStorage.setItem('kendo_opp_v4', JSON.stringify(opponents));
-
-    refreshOpponentDropdowns();
-    renderRecords();
-    renderIndRecords();
+    setCloudStatus('online');
   } catch(e) {
-    console.error('loadMatches failed:', e);
-    document.getElementById('records-list').innerHTML = '<div class="empty">載入失敗：' + (e.message || '無法連線到雲端') + '</div>';
-    const indList = document.getElementById('ind-records-list');
-    if (indList) indList.innerHTML = '<div class="empty">載入失敗：' + (e.message || '無法連線到雲端') + '</div>';
-    showToast('雲端同步失敗：' + (e.message || '請檢查 API_URL / GAS 部署'));
+    matches = JSON.parse(localStorage.getItem('kendo_matches_v6')||'[]');
+    indMatches = JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]');
+    opponents = JSON.parse(localStorage.getItem('kendo_opp_v4')||'[]');
+    setCloudStatus('offline');
+    showToast('雲端無法連線，已載入本機備份');
   }
+  refreshOpponentDropdowns();
+  renderRecords();
+  renderIndRecords();
 }
 
 // ── Nav ──────────────────────────────────
@@ -838,8 +852,13 @@ function goPage(id) {
 async function saveOpponents() {
   const data = JSON.stringify(opponents);
   localStorage.setItem('kendo_opp_v4', data);
-  await api({action:'saveRosters', rostersData:data});
-  return true;
+  try {
+    await api({action:'saveRosters', rostersData:data});
+    setCloudStatus('online');
+  } catch(e) {
+    setCloudStatus('offline');
+    showToast('已存本機，雲端同步失敗');
+  }
 }
 function getPlayers(city) { return (opponents.find(o=>o.city===city)?.players)||[]; }
 function getAllCities() { return opponents.map(o=>o.city); }
@@ -1091,9 +1110,19 @@ async function saveMatch() {
   try {
     const res=await api({action:'saveMatch',matchData:JSON.stringify(match)});
     if(!res.success) throw new Error(res.error);
-    showToast('已儲存');clearTeamForm();goPage('records');loadMatches();
-  }catch(e){showToast('儲存失敗：'+e.message);}
-  finally{btn.textContent='儲存記錄';btn.disabled=false;}
+    setCloudStatus('online');
+  } catch(e) {
+    const local=JSON.parse(localStorage.getItem('kendo_matches_v6')||'[]');
+    match.id = Date.now();
+    local.unshift(match);
+    localStorage.setItem('kendo_matches_v6', JSON.stringify(local));
+    matches = local;
+    setCloudStatus('offline');
+    showToast('雲端儲存失敗，已存本機');
+  } finally {
+    btn.textContent='儲存記錄'; btn.disabled=false;
+  }
+  clearTeamForm(); goPage('records'); renderRecords();
 }
 function clearTeamForm() {
   ['f-event','f-note','f-ref1','f-ref2','f-ref3'].forEach(id=>document.getElementById(id).value='');
@@ -1105,8 +1134,16 @@ function clearTeamForm() {
 // ── Records ─────────────────────────────
 async function deleteMatch(id){
   if(!confirm('確定刪除？'))return;
-  const res=await api({action:'deleteMatch',matchId:id});
-  if(res.success){showToast('已刪除');loadMatches();}
+  try {
+    await api({action:'deleteMatch',matchId:id});
+    setCloudStatus('online');
+  } catch(e) {
+    const local=JSON.parse(localStorage.getItem('kendo_matches_v6')||'[]');
+    localStorage.setItem('kendo_matches_v6', JSON.stringify(local.filter(m=>String(m.id)!==String(id))));
+    matches = JSON.parse(localStorage.getItem('kendo_matches_v6'));
+    setCloudStatus('offline');
+  }
+  showToast('已刪除'); renderRecords();
 }
 
 function renderRecords() {
@@ -2014,6 +2051,17 @@ function importScheduleMatchMode(matchIdx, mode) {
     showToast('已帶入，請選擇選手並補充對戰記錄');
   }, 100);
   goPage('add');
+}
+
+// ── Cloud Status Indicator ──────────────
+function setCloudStatus(status) {
+  const bar = document.getElementById('cloud-status-bar');
+  const txt = document.getElementById('cloud-status-text');
+  if(!bar || !txt) return;
+  bar.className = 'cloud-status ' + status;
+  if(status === 'online')   txt.textContent = '雲端已連線';
+  if(status === 'offline')  txt.textContent = '離線（本機模式）';
+  if(status === 'checking') txt.textContent = '連線中...';
 }
 
 // ── Boot ─────────────────────────────────
