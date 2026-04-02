@@ -738,6 +738,7 @@ async function api(params) {
 }
 function localFallback(p) {
   const KEY='kendo_matches_v6';
+  const OPP_KEY='kendo_opp_v4';
   const local = JSON.parse(localStorage.getItem(KEY)||'[]');
   if(p.action==='login'){
     if(p.password==='admin') return {success:true,data:{role:'admin',token:'demo-admin'}};
@@ -755,13 +756,29 @@ function localFallback(p) {
     localStorage.setItem(KEY,JSON.stringify(upd));
     return {success:true,data:{deleted:true}};
   }
+  if(p.action==='getRosters'){
+    return {success:true,data:JSON.parse(localStorage.getItem(OPP_KEY)||'[]')};
+  }
+  if(p.action==='saveRosters'){
+    localStorage.setItem(OPP_KEY,p.rostersData);
+    return {success:true};
+  }
   return {success:false,error:'離線'};
 }
 async function loadMatches() {
   try {
-    const res = await api({action:'getMatches'});
-    matches = res.data||[];
+    const [matchRes, rosterRes] = await Promise.all([
+      api({action:'getMatches'}),
+      api({action:'getRosters'})
+    ]);
+    matches = matchRes.data||[];
+    const cloudRosters = rosterRes.data||[];
+    if(cloudRosters.length) {
+      opponents = cloudRosters;
+      localStorage.setItem('kendo_opp_v4', JSON.stringify(opponents));
+    }
     indMatches = JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]');
+    refreshOpponentDropdowns();
     renderRecords();
   } catch(e) { document.getElementById('records-list').innerHTML='<div class="empty">載入失敗</div>'; }
 }
@@ -784,7 +801,12 @@ function goPage(id) {
 }
 
 // ── Rosters ──────────────────────────────
-function saveOpponents() { localStorage.setItem('kendo_opp_v4', JSON.stringify(opponents)); }
+function saveOpponents() {
+  const data = JSON.stringify(opponents);
+  localStorage.setItem('kendo_opp_v4', data);
+  // 同步到雲端（非同步，不阻擋 UI）
+  api({action:'saveRosters', rostersData:data}).catch(()=>{});
+}
 function getPlayers(city) { return (opponents.find(o=>o.city===city)?.players)||[]; }
 function getAllCities() { return opponents.map(o=>o.city); }
 function getMyTeams() { return opponents.filter(o=>o.isMine).map(o=>o.city); }
