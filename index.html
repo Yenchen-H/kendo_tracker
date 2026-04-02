@@ -738,8 +738,11 @@ async function api(params) {
 }
 function localFallback(p) {
   const KEY='kendo_matches_v6';
+  const IND_KEY='kendo_ind_matches';
   const OPP_KEY='kendo_opp_v4';
-  const local = JSON.parse(localStorage.getItem(KEY)||'[]');
+  const collection = p.collection === 'ind' ? 'ind' : 'team';
+  const local = JSON.parse(localStorage.getItem(collection === 'ind' ? IND_KEY : KEY) || '[]');
+
   if(p.action==='login'){
     if(p.password==='admin') return {success:true,data:{role:'admin',token:'demo-admin'}};
     if(p.password==='viewer') return {success:true,data:{role:'viewer',token:'demo-viewer'}};
@@ -748,12 +751,13 @@ function localFallback(p) {
   if(p.action==='getMatches') return {success:true,data:local};
   if(p.action==='saveMatch'){
     const m=JSON.parse(p.matchData); m.id=Date.now();
-    local.unshift(m); localStorage.setItem(KEY,JSON.stringify(local));
+    local.unshift(m);
+    localStorage.setItem(collection === 'ind' ? IND_KEY : KEY, JSON.stringify(local));
     return {success:true,data:{id:m.id}};
   }
   if(p.action==='deleteMatch'){
     const upd=local.filter(m=>String(m.id)!==String(p.matchId));
-    localStorage.setItem(KEY,JSON.stringify(upd));
+    localStorage.setItem(collection === 'ind' ? IND_KEY : KEY, JSON.stringify(upd));
     return {success:true,data:{deleted:true}};
   }
   if(p.action==='getRosters'){
@@ -761,26 +765,32 @@ function localFallback(p) {
   }
   if(p.action==='saveRosters'){
     localStorage.setItem(OPP_KEY,p.rostersData);
-    return {success:true};
+    return {success:true,data:{updated:true}};
   }
   return {success:false,error:'離線'};
 }
 async function loadMatches() {
   try {
-    const [matchRes, rosterRes] = await Promise.all([
+    const [matchRes, indMatchRes, rosterRes] = await Promise.all([
       api({action:'getMatches'}),
+      api({action:'getMatches', collection:'ind'}),
       api({action:'getRosters'})
     ]);
-    matches = matchRes.data||[];
-    const cloudRosters = rosterRes.data||[];
-    if(cloudRosters.length) {
+    matches = matchRes.data || [];
+    indMatches = indMatchRes.data || [];
+
+    const cloudRosters = rosterRes.data || [];
+    if (Array.isArray(cloudRosters)) {
       opponents = cloudRosters;
       localStorage.setItem('kendo_opp_v4', JSON.stringify(opponents));
     }
-    indMatches = JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]');
+
     refreshOpponentDropdowns();
     renderRecords();
-  } catch(e) { document.getElementById('records-list').innerHTML='<div class="empty">載入失敗</div>'; }
+    renderIndRecords();
+  } catch(e) {
+    document.getElementById('records-list').innerHTML='<div class="empty">載入失敗</div>';
+  }
 }
 
 // ── Nav ──────────────────────────────────
@@ -801,11 +811,15 @@ function goPage(id) {
 }
 
 // ── Rosters ──────────────────────────────
-function saveOpponents() {
+async function saveOpponents() {
   const data = JSON.stringify(opponents);
   localStorage.setItem('kendo_opp_v4', data);
-  // 同步到雲端（非同步，不阻擋 UI）
-  api({action:'saveRosters', rostersData:data}).catch(()=>{});
+  try {
+    const res = await api({action:'saveRosters', rostersData:data});
+    if(!res.success) throw new Error(res.error || '同步失敗');
+  } catch(e) {
+    console.warn('saveRosters failed:', e);
+  }
 }
 function getPlayers(city) { return (opponents.find(o=>o.city===city)?.players)||[]; }
 function getAllCities() { return opponents.map(o=>o.city); }
@@ -1759,22 +1773,23 @@ function importJSON(event) {
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-      if(!data.matches && !data.opponents) throw new Error('格式不符');
-      if(!confirm(`確定要還原備份嗎？\n匯入：${(data.matches||[]).length} 場團體賽、${(data.indMatches||[]).length} 場個人賽、${(data.opponents||[]).length} 個縣市名單。\n⚠️ 這將覆蓋本裝置的現有資料。`)) return;
+      if(!data.matches && !data.opponents && !data.indMatches) throw new Error('格式不符');
+      if(!confirm(`確定要還原備份嗎？
+匯入：${(data.matches||[]).length} 場團體賽、${(data.indMatches||[]).length} 場個人賽、${(data.opponents||[]).length} 個縣市名單。
+⚠️ 這將覆蓋本裝置的現有資料。`)) return;
       if(data.matches) localStorage.setItem('kendo_matches_v6', JSON.stringify(data.matches));
       if(data.indMatches) localStorage.setItem('kendo_ind_matches', JSON.stringify(data.indMatches));
       if(data.opponents) localStorage.setItem('kendo_opp_v4', JSON.stringify(data.opponents));
-      // Reload state
       matches = data.matches || [];
       indMatches = data.indMatches || [];
       opponents = data.opponents || [];
       refreshOpponentDropdowns();
       renderRecords();
+      renderIndRecords();
       showToast('✓ 備份還原成功！');
     } catch(err) {
       alert('還原失敗：' + (err.message||'請確認檔案格式正確'));
     }
-    // Reset input so the same file can be re-selected
     event.target.value = '';
   };
   reader.readAsText(file);
