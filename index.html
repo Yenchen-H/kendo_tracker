@@ -636,9 +636,7 @@ body::after{
           <div class="fg"><label>比賽日期</label><input type="date" id="if-date"></div>
           <div class="fg"><label>賽事名稱</label><input type="text" id="if-event" placeholder="例：114年縣市對抗賽"></div>
           <div class="fg"><label>我方選手</label>
-            <select id="if-my-player">
-              <option value="">請選擇</option>
-            </select>
+            <input type="text" id="if-my-player" placeholder="選手姓名">
           </div>
           <div class="fg"><label>對手選手</label><input type="text" id="if-opp-player" placeholder="對手姓名"></div>
           <div class="fg"><label>對手所屬</label><input type="text" id="if-opp-org" placeholder="縣市或單位"></div>
@@ -1395,9 +1393,19 @@ function renderRecords() {
         const scored=r.scoredBy;
         const cls=scored==='my'?'my-pt':scored==='opp'?'opp-pt':'neither';
         const tooltip=`局${ri+1}: 我方打${myLabel}${resp?' ('+resp+')':''} vs 對方打${oppLabel} → ${scored==='my'?'我方得分':scored==='opp'?'對方得分':'無效'}`;
-        // Show both hits with arrow
-        return `<span class="traj-round ${cls}" title="${tooltip}">
-          ${ri+1}:<span class="hc hc-${r.myHit||'none'}" style="${r.myHit?'':'opacity:.4'}">${myLabel}</span>${scored==='my'?'✓':''}↔<span class="hc hc-${r.oppHit||'none'}" style="${r.oppHit?'':'opacity:.4'}">${oppLabel}</span>${scored==='opp'?'✓':''}
+        // Show both sides clearly: winner side is bold+colored, loser is faded
+        const myWon  = scored==='my';
+        const oppWon = scored==='opp';
+        return `<span class="traj-round ${cls}" title="${tooltip}" style="padding:2px 7px;gap:3px;align-items:center">
+          <span style="font-size:10px;color:var(--text3)">${ri+1}</span>
+          <span style="font-size:10px;${myWon?'font-weight:700;color:var(--red)':'opacity:.4'}">
+            我${r.myHit?`<span class="hc hc-${r.myHit}" style="margin-left:2px">${HL[r.myHit]}</span>`:''}${myWon?'✓':''}
+          </span>
+          <span style="font-size:9px;color:var(--border2)">｜</span>
+          <span style="font-size:10px;${oppWon?'font-weight:700;color:var(--blue)':'opacity:.4'}">
+            對${r.oppHit?`<span class="hc hc-${r.oppHit}" style="margin-left:2px">${HL[r.oppHit]}</span>`:''}${oppWon?'✓':''}
+          </span>
+          ${scored==='neither'?'<span style="font-size:9px;color:var(--gray)">無</span>':''}
         </span>`;
       }).join('');
       const boutResult=b.result==='win'?'我勝':b.result==='lose'?'我負':b.result==='draw'?'平':'—';
@@ -1503,7 +1511,9 @@ function openScoutDetail(playerName, city) {
     (m.bouts||[]).forEach(b=>{
       const isP=isMyTeam?b.myPlayer===playerName:b.oppPlayer===playerName;
       if(!isP) return;
-      boutHistory.push({date:m.date,event:m.event,opp:isMyTeam?b.oppPlayer:b.myPlayer,result:b.result,rounds:b.rounds||[]});
+      // b.result 是我方視角，若查的是對手選手則需反轉
+      const playerResult = isMyTeam ? b.result : (b.result==='win'?'lose':b.result==='lose'?'win':b.result);
+      boutHistory.push({date:m.date,event:m.event,opp:isMyTeam?b.oppPlayer:b.myPlayer,result:playerResult,rounds:b.rounds||[]});
     });
   });
   const hitBars=HITS.map(h=>{
