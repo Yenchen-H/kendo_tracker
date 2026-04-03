@@ -512,13 +512,14 @@ body::after{
       <div class="nav-item" data-page="ind-records" onclick="goPage('ind-records')"><span class="nav-icon">🥋</span>個人賽記錄</div>
       <div class="nav-item" id="nav-ind-add" data-page="ind-add" onclick="goPage('ind-add')"><span class="nav-icon">➕</span>新增個人賽</div>
       <div class="nav-sec">情蒐</div>
-      <div class="nav-item" data-page="scout" onclick="goPage('scout')"><span class="nav-icon">🔍</span>對手情蒐</div>
+      <div class="nav-item" data-page="scout" onclick="goPage('scout')"><span class="nav-icon">🔍</span>團體賽情蒐</div>
+      <div class="nav-item" data-page="ind-scout" onclick="goPage('ind-scout')"><span class="nav-icon">🥋</span>個人賽情蒐</div>
       <div class="nav-item" data-page="report" onclick="goPage('report')"><span class="nav-icon">📑</span>賽前報告</div>
       <div class="nav-sec">分析</div>
       <div class="nav-item" data-page="stats" onclick="goPage('stats')"><span class="nav-icon">📊</span>數據統計</div>
       <div class="nav-item" data-page="referee" onclick="goPage('referee')"><span class="nav-icon">⚖️</span>裁判分析</div>
       <div class="nav-sec">備戰</div>
-      <div class="nav-item" data-page="opponents" onclick="goPage('opponents')"><span class="nav-icon">🗂️</span>選手名單管理</div>
+      <div class="nav-item" data-page="opponents" onclick="goPage('opponents')"><span class="nav-icon">🗂️</span>縣市管理</div>
       <div class="nav-item" data-page="simulate" onclick="goPage('simulate')"><span class="nav-icon">🎯</span>對戰模擬</div>
       <div class="nav-sec">工具</div>
       <div class="nav-item" id="nav-schedule" data-page="schedule" onclick="goPage('schedule')"><span class="nav-icon">📷</span>賽程圖匯入</div>
@@ -573,7 +574,11 @@ body::after{
         <div class="sec-lbl">基本資訊</div>
         <div class="form-grid">
           <div class="fg"><label>比賽日期</label><input type="date" id="f-date"></div>
-          <div class="fg"><label>賽事名稱</label><input type="text" id="f-event" placeholder="例：114年全國劍道錦標賽"></div>
+          <div class="fg"><label>賽事名稱</label>
+            <select id="f-event" onchange="onEventChange()">
+              <option value="">請選擇或直接輸入</option>
+            </select>
+          </div>
           <div class="fg"><label id="lbl-my-team">我方隊伍（縣市）</label>
             <select id="f-my-team" onchange="onTeamChange()">
               <option value="">請選擇</option>
@@ -673,6 +678,17 @@ body::after{
       <div id="scout-content"><div class="empty">請先建立選手名單並記錄比賽</div></div>
     </div>
 
+    <!-- ══ 個人賽情蒐 ══ -->
+    <div class="page" id="page-ind-scout">
+      <div class="ph">
+        <div><div class="pt">個人賽對手情蒐</div><div class="ps">依對手姓名彙整歷史對戰、慣用部位、勝率</div></div>
+      </div>
+      <div class="filter-row" style="margin-bottom:1rem">
+        <input type="text" id="ind-scout-filter" placeholder="搜尋對手姓名、所屬..." oninput="renderIndScout()">
+      </div>
+      <div id="ind-scout-content"><div class="empty">尚無個人賽記錄</div></div>
+    </div>
+
     <!-- ══ 賽前報告 ══ -->
     <div class="page" id="page-report">
       <div class="ph"><div><div class="pt">賽前情蒐報告</div><div class="ps">針對即將對戰的對手自動生成分析</div></div></div>
@@ -723,8 +739,8 @@ body::after{
     <!-- ══ 選手名單管理 ══ -->
     <div class="page" id="page-opponents">
       <div class="ph">
-        <div><div class="pt">選手名單管理</div><div class="ps">預設我方與對手縣市選手，比賽時直接選取</div></div>
-        <button class="btn btn-p" onclick="openOppModal(-1,false)">＋ 新增縣市名單</button>
+        <div><div class="pt">縣市管理</div><div class="ps">依賽事建立參賽名單 → 新增比賽時自動帶出選手</div></div>
+        <button class="btn btn-p" onclick="openEventModal(-1)">＋ 新增賽事名單</button>
       </div>
       <div id="opp-grid-wrap"><div class="empty">尚無名單</div></div>
     </div>
@@ -851,27 +867,25 @@ const API_URL = RAW_API_URL.replace(/https:\/\/script\.google\.com\/a\/macros\/[
   </div>
 </div>
 
-<!-- ══ Modal: 選手名單 ══ -->
+<!-- ══ Modal: 賽事名單 ══ -->
 <div class="modal-bg" id="opp-modal">
-  <div class="modal">
+  <div class="modal" style="max-width:600px">
     <div class="modal-title">
-      <span id="opp-modal-title">新增縣市名單</span>
+      <span id="opp-modal-title">新增賽事名單</span>
       <button class="modal-close" onclick="closeOppModal()">✕</button>
     </div>
-    <div class="form-grid">
-      <div class="fg"><label>縣市 / 隊名</label><input type="text" id="opp-city" placeholder="例：臺南市"></div>
-      <div class="fg" style="align-self:end">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="opp-is-mine" style="width:auto"> 這是我方隊伍
-        </label>
-      </div>
+    <div class="fg" style="margin-bottom:.875rem">
+      <label>賽事名稱</label>
+      <input type="text" id="opp-event-name" placeholder="例：114年全國劍道錦標賽">
     </div>
-    <div class="sec-lbl">選手名單</div>
-    <div id="opp-players-rows"></div>
-    <button class="btn btn-s btn-sm" onclick="addOppPlayerRow()" style="margin-top:6px;margin-bottom:.875rem">＋ 加選手</button>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
+    <div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">
+      參賽隊伍名單
+      <button class="btn btn-s btn-xs" onclick="addEventTeamRow()">＋ 加隊伍</button>
+    </div>
+    <div id="opp-teams-rows"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.875rem">
       <button class="btn btn-s btn-sm" onclick="closeOppModal()">取消</button>
-      <button class="btn btn-p btn-sm" onclick="saveOppCity()">儲存</button>
+      <button class="btn btn-p btn-sm" onclick="saveEventRoster()">儲存</button>
     </div>
   </div>
 </div>
@@ -1062,6 +1076,7 @@ function goPage(id) {
   if(id==='opponents') renderOpponents();
   if(id==='simulate') initSimulate();
   if(id==='scout') renderScout();
+  if(id==='ind-scout') renderIndScout();
   if(id==='report') { refreshOpponentDropdowns(); renderReport(); }
   if(id==='ind-records') renderIndRecords();
   if(id==='ind-add') { initIndForm(); const fd=document.getElementById('if-date'); if(fd&&!fd.value) fd.value=new Date().toISOString().slice(0,10); }
@@ -1080,24 +1095,130 @@ async function saveOpponents() {
     showToast('已存本機，雲端同步失敗');
   }
 }
-function getPlayers(city) { return (opponents.find(o=>o.city===city)?.players)||[]; }
-function getAllCities() { return opponents.map(o=>o.city); }
-function getMyTeams() { return opponents.filter(o=>o.isMine).map(o=>o.city); }
+// 從賽事名單 + 比賽記錄萃取選手
+function getEventRoster(eventName) {
+  // Returns [{city, isMine, players}] for a given event
+  if(!eventName) return [];
+  const entry = (opponents||[]).find(o => o.event === eventName);
+  return entry?.teams || [];
+}
+
+function getPlayers(city, eventName) {
+  // If eventName given, look up from roster; else from match history
+  if(eventName) {
+    const teams = getEventRoster(eventName);
+    const team = teams.find(t=>t.city===city);
+    return team?.players || [];
+  }
+  // Fallback: derive from match history
+  const names = new Set();
+  matches.forEach(m => {
+    if(m.myTeam===city) (m.bouts||[]).forEach(b=>{ if(b.myPlayer) names.add(b.myPlayer); });
+    if(m.oppTeam===city) (m.bouts||[]).forEach(b=>{ if(b.oppPlayer) names.add(b.oppPlayer); });
+  });
+  return [...names].sort().map(n=>({name:n}));
+}
+
+function getEventCities(eventName) {
+  // Return cities registered for an event
+  if(!eventName) return [];
+  return getEventRoster(eventName).map(t=>t.city);
+}
+
+function getAllCities() {
+  const cities = new Set();
+  matches.forEach(m=>{ if(m.myTeam) cities.add(m.myTeam); if(m.oppTeam) cities.add(m.oppTeam); });
+  (opponents||[]).forEach(o=>{
+    if(o.teams) o.teams.forEach(t=>{ if(t.city) cities.add(t.city); });
+    else if(o.city) cities.add(o.city);
+  });
+  return [...cities].sort();
+}
+
+function getMyTeams() {
+  const mySet = new Set();
+  (opponents||[]).forEach(o=>{
+    if(o.teams) o.teams.filter(t=>t.isMine).forEach(t=>mySet.add(t.city));
+    else if(o.isMine && o.city) mySet.add(o.city);
+  });
+  matches.filter(m=>m.addMode!=='obs'&&m.myTeam).forEach(m=>mySet.add(m.myTeam));
+  return [...mySet];
+}
 
 function refreshOpponentDropdowns() {
+  // Populate f-event select from opponents roster
+  const evSel = document.getElementById('f-event');
+  if(evSel) {
+    const cur = evSel.value;
+    const events = (opponents||[]).filter(o=>o.event).map(o=>o.event);
+    evSel.innerHTML = '<option value="">請選擇賽事</option>' +
+      events.map(e=>`<option value="${e}">${e}</option>`).join('') +
+      '<option value="__custom__">其他（手動輸入）</option>';
+    if(cur) evSel.value = cur;
+  }
+
+  // Also populate rpt/sim dropdowns from all cities
   const cities = getAllCities();
-  const myT = getMyTeams().length ? getMyTeams() : cities;
-  ['f-my-team','f-opp-team','sim-my-team','sim-opp-team','rpt-my-team','rpt-opp-team'].forEach(id=>{
+  const myT = getMyTeams();
+  const myList = myT.length ? myT : cities;
+  ['sim-my-team','sim-opp-team','rpt-my-team','rpt-opp-team'].forEach(id=>{
     const sel=document.getElementById(id); if(!sel) return;
     const cur=sel.value;
-    // 觀察賽模式：f-my-team (紅方) 也可選所有縣市
-    const isMine = (id==='f-my-team'||id==='sim-my-team'||id==='rpt-my-team');
-    const isObsTeam = (id==='f-my-team' && addMode==='obs');
-    const list = (isMine && !isObsTeam) ? myT : cities;
+    const isMine=(id==='sim-my-team'||id==='rpt-my-team');
+    const list=isMine?myList:cities;
     sel.innerHTML='<option value="">請選擇</option>'+list.map(c=>`<option value="${c}">${c}</option>`).join('');
     if(cur) sel.value=cur;
   });
+
+  // f-my-team / f-opp-team: cascade from selected event
+  onEventChange();
 }
+
+function onEventChange() {
+  const evSel = document.getElementById('f-event');
+  if(!evSel) return;
+  const eventName = evSel.value;
+
+  // Handle custom input
+  if(eventName === '__custom__') {
+    const custom = prompt('請輸入賽事名稱：','');
+    if(custom) {
+      // Add temp option
+      const opt = document.createElement('option');
+      opt.value = custom; opt.textContent = custom;
+      evSel.insertBefore(opt, evSel.lastElementChild);
+      evSel.value = custom;
+    } else {
+      evSel.value = '';
+    }
+    return;
+  }
+
+  const eventCities = getEventCities(eventName);
+  const allCities = getAllCities();
+  const myT = getMyTeams();
+
+  // If event has registered cities, use those; else fall back to all cities
+  const availCities = eventCities.length ? eventCities : allCities;
+  const myAvail = eventCities.length
+    ? eventCities.filter(c=>myT.includes(c))
+    : (myT.length ? myT : allCities);
+
+  ['f-my-team','f-opp-team'].forEach(id=>{
+    const sel=document.getElementById(id); if(!sel) return;
+    const cur=sel.value;
+    const isMine = id==='f-my-team';
+    const isObs = addMode==='obs';
+    const list = (isMine && !isObs) ? (myAvail.length?myAvail:availCities) : availCities;
+    sel.innerHTML='<option value="">請選擇</option>'+list.map(c=>`<option value="${c}">${c}</option>`).join('');
+    if(cur && list.includes(cur)) sel.value=cur;
+  });
+
+  // Trigger player list update
+  onTeamChange();
+}
+
+
 function onTeamChange() {
   boutState.forEach((s,i)=>{
     s._myPlayer=document.getElementById(`bout-my-p-${i}`)?.value||s._myPlayer||'';
@@ -1145,8 +1266,9 @@ function renderBoutBlock(i) {
     s.winner==='draw'?'<span class="bout-result-badge brb-draw">平手</span>':'';
   const myCity=document.getElementById('f-my-team')?.value||'我方';
   const oppCity=document.getElementById('f-opp-team')?.value||'對方';
-  const myPlayers=getPlayers(myCity);
-  const oppPlayers=getPlayers(oppCity);
+  const eventName=document.getElementById('f-event')?.value||'';
+  const myPlayers=getPlayers(myCity, eventName);
+  const oppPlayers=getPlayers(oppCity, eventName);
 
   const roundsHtml=s.rounds.map((r,ri)=>`
     <div class="round-row">
@@ -1166,16 +1288,18 @@ function renderBoutBlock(i) {
     <div class="bout-header">
       <div class="bout-order">${i+1}</div>
       <div class="bout-names">
-        <select id="bout-my-p-${i}" style="width:110px;padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--card)">
+        <select id="bout-my-p-${i}"
+          style="width:110px;padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--card)">
           <option value="">${addMode==="obs"?"紅方選手":"我方選手"}</option>
           ${myPlayers.map(p=>`<option value="${p.name}" ${p.name===prevMyP?'selected':''}>${p.name}</option>`).join('')}
-          ${prevMyP && !myPlayers.find(p=>p.name===prevMyP) ? `<option value="${prevMyP}" selected>${prevMyP}</option>` : ''}
+          ${prevMyP && !myPlayers.find(p=>p.name===prevMyP)?`<option value="${prevMyP}" selected>${prevMyP}（手動）</option>`:''}
         </select>
         <span class="bout-vs">vs</span>
-        <select id="bout-opp-p-${i}" style="width:110px;padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--card)">
+        <select id="bout-opp-p-${i}"
+          style="width:110px;padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--card)">
           <option value="">${addMode==="obs"?"白方選手":"對手選手"}</option>
           ${oppPlayers.map(p=>`<option value="${p.name}" ${p.name===prevOppP?'selected':''}>${p.name}</option>`).join('')}
-          ${prevOppP && !oppPlayers.find(p=>p.name===prevOppP) ? `<option value="${prevOppP}" selected>${prevOppP}</option>` : ''}
+          ${prevOppP && !oppPlayers.find(p=>p.name===prevOppP)?`<option value="${prevOppP}" selected>${prevOppP}（手動）</option>`:''}
         </select>
       </div>
       ${resultBadge}
@@ -1470,54 +1594,95 @@ function getPlayerStats(playerName, city) {
   return result;
 }
 
-function renderScout() {
-  const c=document.getElementById('scout-content');
-  if(!opponents.length){c.innerHTML='<div class="empty">請先在「選手名單管理」建立各縣市資料</div>';return;}
-  c.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${opponents.map((o,oi)=>{
-    const cityM=matches.filter(m=>m.myTeam===o.city||m.oppTeam===o.city);
-    const playersHtml=(o.players||[]).map(p=>{
-      const s=getPlayerStats(p.name,o.city);
-      const total=Object.values(s.hitDist).reduce((a,b)=>a+b,0);
-      const topHit=Object.entries(s.hitDist).sort((a,b)=>b[1]-a[1]).find(([,v])=>v>0);
-      const hitChips=HITS.filter(h=>s.hitDist[h]>0).slice(0,3).map(h=>`<span class="hc hc-${h}">${HL[h]}×${s.hitDist[h]}</span>`).join('');
-      const respChips=s.topResponses.slice(0,2).map(r=>`<span style="font-size:10px;background:var(--purple-bg,#f5eef8);color:#6c3483;padding:1px 5px;border-radius:5px">${r}</span>`).join('');
-      return `<div style="padding:6px 0;border-bottom:1px solid #f5f4f0;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openScoutDetail('${p.name}','${o.city}');event.stopPropagation()">
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:700">${p.name}</div>
-          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${hitChips||'<span style="font-size:11px;color:var(--text3)">無部位數據</span>'}${respChips}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:var(--text3)">${s.total?`${s.wins}得分/${s.total}局`:'無數據'}</div>
-          ${topHit?`<div style="font-size:10px;color:var(--gold)">慣用${HL[topHit[0]]}</div>`:''}
-        </div>
-      </div>`;
-    }).join('');
-    return `<div class="card" style="cursor:pointer;transition:box-shadow .12s" onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
-        <h3 style="font-size:14px;font-weight:700;color:var(--navy)">${o.city}${o.isMine?'<span style="font-size:10px;background:var(--navy);color:var(--gold2);padding:1px 6px;border-radius:4px;margin-left:6px">我方</span>':''}</h3>
-        <span style="font-size:11px;color:var(--text3)">${cityM.length}場數據</span>
-      </div>
-      ${playersHtml||'<div style="font-size:12px;color:var(--text3)">尚無選手資料</div>'}
-    </div>`;
-  }).join('')}</div>`;
+// ── Individual Match Scout ──────────────
+function getIndPlayerStats(oppName) {
+  // Collect all ind matches vs this opponent
+  const result = {
+    wins:0, losses:0, draws:0, total:0,
+    hitDist:{men:0,do:0,kote:0,tsuki:0},
+    oppHitDist:{men:0,do:0,kote:0,tsuki:0},
+    history:[]
+  };
+  indMatches.filter(m => m.oppPlayer === oppName).forEach(m => {
+    result.total++;
+    if(m.result==='win') result.wins++;
+    else if(m.result==='lose') result.losses++;
+    else result.draws++;
+    // My hits (what I used to score)
+    (m.myHits||[]).forEach(h=>{ if(result.hitDist[h]!==undefined) result.hitDist[h]++; });
+    // Opp hits (what opponent used to score)
+    (m.oppHits||[]).forEach(h=>{ if(result.oppHitDist[h]!==undefined) result.oppHitDist[h]++; });
+    // Also scan boutData rounds if available
+    const rounds = (m.boutData && Array.isArray(m.boutData)) ? m.boutData : [];
+    rounds.forEach(r=>{
+      if(r.myHit && r.winner==='my' && result.hitDist[r.myHit]!==undefined) result.hitDist[r.myHit]++;
+      if(r.oppHit && r.winner==='opp' && result.oppHitDist[r.oppHit]!==undefined) result.oppHitDist[r.oppHit]++;
+    });
+    result.history.push({date:m.date, event:m.event, oppOrg:m.oppOrg, result:m.result, myHits:m.myHits||[], oppHits:m.oppHits||[], mode:m.mode});
+  });
+  return result;
 }
 
-function openScoutDetail(playerName, city) {
-  const s=getPlayerStats(playerName,city);
-  const total=Object.values(s.hitDist).reduce((a,b)=>a+b,0);
-  const boutHistory=[];
-  matches.forEach(m=>{
-    const isMyTeam=m.myTeam===city;
-    (m.bouts||[]).forEach(b=>{
-      const isP=isMyTeam?b.myPlayer===playerName:b.oppPlayer===playerName;
-      if(!isP) return;
-      // b.result 是我方視角，若查的是對手選手則需反轉
-      const playerResult = isMyTeam ? b.result : (b.result==='win'?'lose':b.result==='lose'?'win':b.result);
-      boutHistory.push({date:m.date,event:m.event,opp:isMyTeam?b.oppPlayer:b.myPlayer,result:playerResult,rounds:b.rounds||[]});
-    });
+function renderIndScout() {
+  const q = (document.getElementById('ind-scout-filter')?.value||'').toLowerCase();
+  const c = document.getElementById('ind-scout-content');
+
+  if(!indMatches.length) {
+    c.innerHTML='<div class="empty">尚無個人賽記錄</div>'; return;
+  }
+
+  // Group by opponent name
+  const oppMap = {};
+  indMatches.forEach(m => {
+    if(!m.oppPlayer) return;
+    if(!oppMap[m.oppPlayer]) oppMap[m.oppPlayer] = {name:m.oppPlayer, org:m.oppOrg||''};
   });
-  const hitBars=HITS.map(h=>{
-    const n=s.hitDist[h]||0,pct=total?Math.round(n/total*100):0;
+
+  let opps = Object.values(oppMap);
+  if(q) opps = opps.filter(o => o.name.includes(q) || o.org.includes(q));
+
+  if(!opps.length) { c.innerHTML='<div class="empty">找不到符合的對手</div>'; return; }
+
+  c.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+    ${opps.map(o => {
+      const s = getIndPlayerStats(o.name);
+      const wr = s.total ? Math.round(s.wins/s.total*100) : 0;
+      const topMyHit = Object.entries(s.hitDist).sort((a,b)=>b[1]-a[1]).find(([,v])=>v>0);
+      const topOppHit = Object.entries(s.oppHitDist).sort((a,b)=>b[1]-a[1]).find(([,v])=>v>0);
+      const wrColor = wr>=60?'var(--green)':wr>=40?'var(--gold)':'var(--red)';
+      return `<div class="card" style="cursor:pointer;transition:box-shadow .12s"
+        onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'"
+        onmouseout="this.style.boxShadow=''"
+        onclick="openIndScoutDetail('${o.name.replace(/'/g,"\'")}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--navy)">${o.name}</div>
+            ${o.org?`<div style="font-size:11px;color:var(--text3)">${o.org}</div>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:22px;font-weight:700;color:${wrColor}">${wr}%</div>
+            <div style="font-size:10px;color:var(--text3)">${s.wins}勝${s.losses}負${s.draws?s.draws+'平':''} / ${s.total}場</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;flex-wrap:wrap">
+          ${topMyHit?`<span style="background:var(--red-bg);color:var(--red);padding:2px 8px;border-radius:8px">我慣用 <span class="hc hc-${topMyHit[0]}">${HL[topMyHit[0]]}</span></span>`:''}
+          ${topOppHit?`<span style="background:var(--blue-bg);color:var(--blue);padding:2px 8px;border-radius:8px">對方慣用 <span class="hc hc-${topOppHit[0]}">${HL[topOppHit[0]]}</span></span>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function openIndScoutDetail(oppName) {
+  const s = getIndPlayerStats(oppName);
+  const total = s.total;
+  const wr = total ? Math.round(s.wins/total*100) : 0;
+  const wrColor = wr>=60?'var(--green)':wr>=40?'var(--gold)':'var(--red)';
+
+  // My hit bars
+  const myTotal = Object.values(s.hitDist).reduce((a,b)=>a+b,0);
+  const myHitBars = HITS.map(h => {
+    const n=s.hitDist[h]||0, pct=myTotal?Math.round(n/myTotal*100):0;
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px">
       <span style="width:50px"><span class="hc hc-${h}">${HL[h]}</span></span>
       <div style="flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden">
@@ -1526,40 +1691,249 @@ function openScoutDetail(playerName, city) {
       <span style="color:var(--text2);width:55px;text-align:right">${n}次 (${pct}%)</span>
     </div>`;
   }).join('');
-  const respItems=Object.entries(s.responseCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const respHtml=respItems.map(([v,n])=>
-    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;padding:4px 8px;background:var(--surface);border-radius:6px">
-      <span style="flex:1">${RESPONSES.find(r=>r.v===v)?.l||v}</span>
-      <span style="font-size:11px;font-weight:700;color:var(--navy)">${n}次</span>
-    </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">尚無應對模式數據</div>';
-  const histHtml=boutHistory.slice(0,5).map(b=>{
-    const rp=b.result==='win'?'rp-win':b.result==='lose'?'rp-lose':'rp-draw';
-    const rounds=b.rounds.filter(r=>r.myHit||r.oppHit).map((r,ri)=>{
-      const resp=RESPONSES.find(x=>x.v===r.response)?.l||'';
-      return `<span style="font-size:10px;color:var(--text3)">局${ri+1}:${r.myHit?HL[r.myHit]:'?'}${resp?'('+resp+')':''}</span>`;
-    }).join(' ');
-    return `<div style="padding:6px 0;border-bottom:1px solid #f5f4f0;font-size:12px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="color:var(--text3);font-size:11px;width:60px">${b.date}</span>
-        <span style="flex:1">vs ${b.opp||'—'}</span>
-        <span class="rp ${rp}" style="font-size:10px">${b.result==='win'?'勝':b.result==='lose'?'負':'平'}</span>
+
+  // Opp hit bars
+  const oppTotal = Object.values(s.oppHitDist).reduce((a,b)=>a+b,0);
+  const oppHitBars = HITS.map(h => {
+    const n=s.oppHitDist[h]||0, pct=oppTotal?Math.round(n/oppTotal*100):0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px">
+      <span style="width:50px"><span class="hc hc-${h}">${HL[h]}</span></span>
+      <div style="flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${h==='men'?'#1a5276':h==='do'?'#d4ac0d':h==='kote'?'#a93226':'#1e6b3c'};border-radius:4px;opacity:.6"></div>
       </div>
-      ${rounds?`<div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap">${rounds}</div>`:''}
+      <span style="color:var(--text2);width:55px;text-align:right">${n}次 (${pct}%)</span>
     </div>`;
   }).join('');
-  document.getElementById('scout-modal-title').textContent=`${playerName}（${city}）`;
-  document.getElementById('scout-modal-content').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:.875rem">
-      <div class="sc"><div class="sn" style="font-size:22px">${s.wins}</div><div class="sl">得分局數</div></div>
-      <div class="sc"><div class="sn" style="font-size:22px">${s.total?Math.round(s.wins/s.total*100):0}%</div><div class="sl">得分率</div></div>
+
+  // History
+  const histHtml = s.history.slice(0,8).map(h => {
+    const rp = h.result==='win'?'rp-win':h.result==='lose'?'rp-lose':'rp-draw';
+    const rl = h.result==='win'?'勝':h.result==='lose'?'負':'平';
+    const myH = (h.myHits||[]).map(x=>`<span class="hc hc-${x}">${HL[x]}</span>`).join('');
+    const oppH = (h.oppHits||[]).map(x=>`<span class="hc hc-${x}">${HL[x]}</span>`).join('');
+    return `<div style="padding:6px 0;border-bottom:1px solid #f5f4f0;font-size:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:var(--text3);font-size:11px;width:65px">${h.date}</span>
+        <span style="flex:1;color:var(--text2)">${h.event||h.oppOrg||''}</span>
+        <span class="rp ${rp}" style="font-size:10px">${rl}</span>
+      </div>
+      <div style="margin-top:3px;display:flex;gap:12px">
+        ${myH?`<span style="font-size:10px;color:var(--text3)">我方得分：${myH}</span>`:''}
+        ${oppH?`<span style="font-size:10px;color:var(--text3)">對方得分：${oppH}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Use the scout-modal
+  document.getElementById('scout-modal-title').textContent = `${oppName} 個人賽情蒐`;
+  document.getElementById('scout-modal-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:.875rem">
+      <div class="sc"><div class="sn" style="font-size:22px;color:${wrColor}">${wr}%</div><div class="sl">勝率</div></div>
+      <div class="sc"><div class="sn" style="font-size:22px;color:var(--red)">${s.wins}</div><div class="sl">勝場</div></div>
+      <div class="sc"><div class="sn" style="font-size:22px;color:var(--blue)">${s.losses}</div><div class="sl">敗場</div></div>
     </div>
-    <div class="sec-lbl">慣用部位分布</div>${hitBars}
-    <div class="sec-lbl">常見應對模式</div>${respHtml}
-    <div class="sec-lbl">近期對戰記錄（含觀察賽）</div>${histHtml||'<div style="font-size:12px;color:var(--text3)">尚無紀錄</div>'}`;
+    <div class="sec-lbl">我方慣用得分部位（打這個選手）</div>
+    ${myHitBars||'<div style="font-size:12px;color:var(--text3)">無部位數據</div>'}
+    <div class="sec-lbl" style="margin-top:.75rem">對方慣用得分部位（此選手的習慣）</div>
+    ${oppHitBars||'<div style="font-size:12px;color:var(--text3)">無部位數據</div>'}
+    <div class="sec-lbl" style="margin-top:.75rem">對戰歷史</div>
+    ${histHtml||'<div style="font-size:12px;color:var(--text3)">無記錄</div>'}`;
   document.getElementById('scout-modal').classList.add('open');
 }
 
-// ── Pre-match Report ────────────────────
+function renderScout() {
+  const c = document.getElementById('scout-content');
+  if(!matches.length) {
+    c.innerHTML='<div class="empty">尚無比賽記錄，請先新增比賽</div>'; return;
+  }
+
+  // Group matches by event name (賽事名稱)
+  // Each "event" groups all matches of same event+year together
+  const eventMap = {};
+  matches.forEach(m => {
+    const key = m.event ? m.event : `（${m.date?.slice(0,4)||'未知年份'} 未命名賽事）`;
+    if(!eventMap[key]) eventMap[key] = { label: key, matches: [], dates: [] };
+    eventMap[key].matches.push(m);
+    if(m.date) eventMap[key].dates.push(m.date);
+  });
+
+  // Sort events by latest date descending
+  const events = Object.values(eventMap).sort((a,b) => {
+    const da = a.dates.sort().reverse()[0]||'';
+    const db = b.dates.sort().reverse()[0]||'';
+    return db.localeCompare(da);
+  });
+
+  c.innerHTML = `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:.875rem">
+      共 ${events.length} 個賽事・點開賽事查看各縣市選手，點選手名可看跨賽累計數據
+    </div>
+    ${events.map((ev,ei) => {
+      // Collect all cities & players in this event
+      const cityPlayers = {};
+      ev.matches.forEach(m => {
+        [[m.myTeam,'myPlayer'],[m.oppTeam,'oppPlayer']].forEach(([city, pk]) => {
+          if(!city) return;
+          if(!cityPlayers[city]) cityPlayers[city] = new Set();
+          (m.bouts||[]).forEach(b=>{ if(b[pk]) cityPlayers[city].add(b[pk]); });
+        });
+      });
+      const cities = Object.keys(cityPlayers).sort();
+      const dateRange = ev.dates.length
+        ? (ev.dates.sort()[0] === ev.dates.sort().reverse()[0]
+            ? ev.dates[0]
+            : `${ev.dates.sort()[0]} ~ ${ev.dates.sort().reverse()[0]}`)
+        : '';
+
+      const cityHtml = cities.map(city => {
+        const players = [...cityPlayers[city]].sort();
+        return `<div style="margin-bottom:.75rem">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;
+            padding:3px 8px;background:var(--surface);border-radius:4px;display:inline-block">${city}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${players.map(name => {
+              const s = getPlayerStats(name, city);
+              const topHit = Object.entries(s.hitDist).sort((a,b)=>b[1]-a[1]).find(([,v])=>v>0);
+              const wr = s.total ? Math.round(s.wins/s.total*100) : null;
+              const wrColor = wr===null?'var(--text3)':wr>=60?'var(--green)':wr>=40?'var(--gold)':'var(--red)';
+              return `<div onclick="openScoutDetail('${name.replace(/'/g,"\'")}','${city.replace(/'/g,"\'")}');event.stopPropagation()"
+                style="display:flex;align-items:center;gap:5px;padding:4px 10px;
+                  background:var(--card);border:1px solid var(--border);border-radius:20px;
+                  cursor:pointer;font-size:12px;transition:all .12s"
+                onmouseover="this.style.borderColor='var(--gold)';this.style.boxShadow='0 2px 6px rgba(0,0,0,.08)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
+                <span style="font-weight:600">${name}</span>
+                ${topHit?`<span class="hc hc-${topHit[0]}" style="font-size:10px">${HL[topHit[0]]}</span>`:''}
+                ${wr!==null?`<span style="font-size:10px;font-weight:700;color:${wrColor}">${wr}%</span>`:''}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="card" style="margin-bottom:.75rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none"
+          onclick="toggleScoutEvent('ev-${ei}')">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--navy)">${ev.label}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">
+              ${dateRange} &nbsp;·&nbsp; ${ev.matches.length} 場 &nbsp;·&nbsp; ${cities.length} 個縣市 &nbsp;·&nbsp;
+              ${cities.reduce((sum,c)=>sum+cityPlayers[c].size,0)} 位選手
+            </div>
+          </div>
+          <span id="ev-icon-${ei}" style="font-size:18px;color:var(--text3);transition:transform .2s">▸</span>
+        </div>
+        <div id="ev-${ei}" style="display:none;margin-top:.875rem;padding-top:.875rem;border-top:1px solid var(--border)">
+          ${cityHtml}
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function toggleScoutEvent(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  // rotate arrow icon
+  const idx = id.replace('ev-','');
+  const icon = document.getElementById('ev-icon-'+idx);
+  if(icon) icon.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+
+function openScoutDetail(playerName, city) {
+  const s = getPlayerStats(playerName, city);
+  const total = Object.values(s.hitDist).reduce((a,b)=>a+b,0);
+  const wr = s.total ? Math.round(s.wins/s.total*100) : 0;
+  const wrColor = wr>=60?'var(--green)':wr>=40?'var(--gold)':'var(--red)';
+
+  // Collect per-match history WITH match context
+  const boutHistory = [];
+  matches.forEach(m => {
+    const isMyTeam = m.myTeam===city;
+    const isOppTeam = m.oppTeam===city;
+    if(!isMyTeam && !isOppTeam) return;
+    (m.bouts||[]).forEach(b => {
+      const isPlayer = isMyTeam ? b.myPlayer===playerName : b.oppPlayer===playerName;
+      if(!isPlayer) return;
+      const playerResult = isMyTeam ? b.result : (b.result==='win'?'lose':b.result==='lose'?'win':b.result);
+      boutHistory.push({
+        date:m.date, event:m.event||'', stage:m.stage||'',
+        opponent: isMyTeam ? `${m.oppTeam} ${b.oppPlayer||''}` : `${m.myTeam} ${b.myPlayer||''}`,
+        result: playerResult,
+        myScore: isMyTeam ? b.myScore : b.oppScore,
+        oppScore: isMyTeam ? b.oppScore : b.myScore,
+        rounds: b.rounds||[]
+      });
+    });
+  });
+  boutHistory.sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Hit distribution bars
+  const hitBars = HITS.map(h => {
+    const n=s.hitDist[h]||0, pct=total?Math.round(n/total*100):0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px">
+      <span style="width:50px"><span class="hc hc-${h}">${HL[h]}</span></span>
+      <div style="flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${h==='men'?'#1a5276':h==='do'?'#d4ac0d':h==='kote'?'#a93226':'#1e6b3c'};border-radius:4px"></div>
+      </div>
+      <span style="color:var(--text2);width:55px;text-align:right">${n}次 (${pct}%)</span>
+    </div>`;
+  }).join('');
+
+  // Response patterns
+  const respItems = Object.entries(s.responseCount||{}).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const respHtml = respItems.map(([v2,n]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;padding:4px 8px;background:var(--surface);border-radius:6px">
+      <span style="flex:1">${RESPONSES.find(r=>r.v===v2)?.l||v2}</span>
+      <span style="font-size:11px;font-weight:700;color:var(--navy)">${n}次</span>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--text3)">無應對模式數據</div>';
+
+  // Match history with per-bout rounds
+  const histHtml = boutHistory.slice(0,8).map(b => {
+    const rp = b.result==='win'?'rp-win':b.result==='lose'?'rp-lose':'rp-draw';
+    const rl = b.result==='win'?'勝':b.result==='lose'?'負':'平';
+    const roundChips = b.rounds.map((r,ri) => {
+      const myHit = r.myHit||''; const oppHit = r.oppHit||'';
+      const sc = r.scoredBy||r.winner;
+      const isMy = isMyCity(city) ? sc==='my' : sc==='opp';
+      return `<span style="font-size:10px;padding:1px 5px;border-radius:6px;${isMy?'background:var(--red-bg);color:var(--red)':'background:var(--blue-bg);color:var(--blue)'}">
+        ${ri+1}:${myHit?HL[myHit]:'—'}${isMy?'✓':''}
+      </span>`;
+    }).join('');
+    return `<div style="padding:7px 0;border-bottom:1px solid #f5f4f0;font-size:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+        <span style="color:var(--text3);font-size:11px;min-width:65px">${b.date}</span>
+        <span style="font-size:11px;background:var(--surface);padding:1px 6px;border-radius:4px">${b.event}${b.stage?' '+b.stage:''}</span>
+        <span style="flex:1;color:var(--text2);font-size:11px">vs ${b.opponent}</span>
+        <span class="rp ${rp}" style="font-size:10px">${b.myScore}:${b.oppScore} ${rl}</span>
+      </div>
+      ${roundChips?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-left:73px">${roundChips}</div>`:''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('scout-modal-title').textContent = `${playerName}（${city}）`;
+  document.getElementById('scout-modal-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:.875rem">
+      <div class="sc"><div class="sn" style="font-size:22px;color:${wrColor}">${wr}%</div><div class="sl">個人勝率</div></div>
+      <div class="sc"><div class="sn" style="font-size:22px">${s.wins}</div><div class="sl">得分局數</div></div>
+      <div class="sc"><div class="sn" style="font-size:22px">${boutHistory.length}</div><div class="sl">出賽場次</div></div>
+    </div>
+    <div class="sec-lbl">慣用得分部位</div>
+    ${total ? hitBars : '<div style="font-size:12px;color:var(--text3)">尚無部位數據</div>'}
+    <div class="sec-lbl" style="margin-top:.75rem">應對模式</div>
+    ${respHtml}
+    <div class="sec-lbl" style="margin-top:.75rem">跨賽對戰紀錄（${boutHistory.length} 場）</div>
+    ${histHtml||'<div style="font-size:12px;color:var(--text3)">尚無紀錄</div>'}`;
+  document.getElementById('scout-modal').classList.add('open');
+}
+
+function isMyCity(city) {
+  return getMyTeams().includes(city);
+}
+
+
 function getMatchupWR(myP, oppP) {
   let wins=0,total=0;
   matches.forEach(m=>{
@@ -1658,166 +2032,224 @@ function renderReport() {
 }
 
 // ── Opponents (roster management) ───────
-function renderOpponents() {
-  refreshOpponentDropdowns();
-  const wrap=document.getElementById('opp-grid-wrap');
-  if(!opponents.length){wrap.innerHTML='<div class="empty">尚無名單</div>';return;}
-  wrap.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px">${opponents.map((o,i)=>{
-    const vr=getVsRecord(o.city);
-    return `<div class="card" style="cursor:pointer;transition:box-shadow .12s" onmouseover="this.style.boxShadow='0 2px 10px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''" onclick="openOppModal(${i})">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <h3 style="font-size:13px;font-weight:700;color:var(--navy)">${o.city}${o.isMine?'<span style="font-size:10px;background:var(--navy);color:var(--gold2);padding:1px 6px;border-radius:4px;margin-left:5px">我方</span>':''}</h3>
-        <span style="font-size:11px;color:var(--text3)">${vr}</span>
-      </div>
-      ${(o.players||[]).map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f5f4f0;font-size:12px">
-        <span style="font-weight:600">${p.name}</span>
-        <span style="color:var(--text3)">${p.position||''}</span>
-        <span>${(p.favHits||[]).map(h=>`<span class="hc hc-${h}">${HL[h]}</span>`).join('')}</span>
-      </div>`).join('')||'<div style="font-size:12px;color:var(--text3)">尚無選手</div>'}
-    </div>`;
-  }).join('')}</div>`;
-}
-function getVsRecord(city){
-  const ms=matches.filter(m=>m.oppTeam===city&&m.addMode!=='obs');
-  const w=ms.filter(m=>m.teamResult==='win').length;
-  return ms.length?`${w}勝${ms.length-w}負`:'無對戰紀錄';
-}
-function openOppModal(idx){
-  editOppIdx=idx;
-  document.getElementById('opp-modal-title').textContent=idx===-1?'新增縣市名單':'編輯名單';
-  const o=idx===-1?{}:opponents[idx];
-  document.getElementById('opp-city').value=o.city||'';
-  document.getElementById('opp-is-mine').checked=o.isMine||false;
-  document.getElementById('opp-players-rows').innerHTML='';
-  (o.players||[]).forEach(p=>addOppPlayerRow(p));
+
+// ══════════════════════════════════════════
+// 賽事名單管理 (opponents = [{event, teams:[{city,isMine,players:[{name,position}]}]}])
+// ══════════════════════════════════════════
+
+let editEventIdx = -1;
+
+function openEventModal(idx) {
+  editEventIdx = idx;
+  document.getElementById('opp-modal-title').textContent = idx===-1 ? '新增賽事名單' : '編輯賽事名單';
+  const entry = idx===-1 ? {event:'',teams:[]} : (opponents[idx]||{event:'',teams:[]});
+  document.getElementById('opp-event-name').value = entry.event||'';
+  document.getElementById('opp-teams-rows').innerHTML = '';
+  (entry.teams||[]).forEach(t => addEventTeamRow(t));
+  if(!(entry.teams||[]).length) addEventTeamRow(); // start with one empty team
   document.getElementById('opp-modal').classList.add('open');
 }
-function closeOppModal(){document.getElementById('opp-modal').classList.remove('open');}
-function addOppPlayerRow(p={}){
-  const div=document.createElement('div');
-  div.style.cssText='display:grid;grid-template-columns:1fr 70px 1fr auto;gap:6px;margin-bottom:6px;align-items:center';
-  div.innerHTML=`<input type="text" placeholder="選手姓名" value="${p.name||''}"><input type="text" placeholder="身高/道號" value="${p.position||''}"><input type="text" placeholder="主攻：面/胴/小手/突" value="${(p.favHits||[]).map(h=>HL[h]).join('/')}"><button class="btn btn-d btn-xs" onclick="this.parentElement.remove()">✕</button>`;
-  document.getElementById('opp-players-rows').appendChild(div);
+
+function openOppModal(idx) { openEventModal(idx); } // backward compat
+
+function closeOppModal() {
+  document.getElementById('opp-modal').classList.remove('open');
 }
-async function saveOppCity(){
-  const city=document.getElementById('opp-city').value.trim();
-  if(!city){showToast('請填寫縣市名稱');return;}
-  const isMine=document.getElementById('opp-is-mine').checked;
-  const rows=document.querySelectorAll('#opp-players-rows > div');
-  const players=[...rows].map(row=>{
-    const ins=row.querySelectorAll('input');
-    const raw=(ins[2]?.value||'').split('/').map(s=>s.trim());
-    const favHits=raw.flatMap(s=>s==='面'?['men']:s==='胴'?['do']:s==='小手'?['kote']:s==='突'?['tsuki']:[]);
-    return{name:ins[0]?.value.trim()||'',position:ins[1]?.value.trim()||'',favHits};
-  }).filter(p=>p.name);
-  const opp={city,isMine,players};
-  if(editOppIdx===-1) opponents.push(opp); else opponents[editOppIdx]=opp;
+
+function addEventTeamRow(team={}) {
+  const wrap = document.getElementById('opp-teams-rows');
+  const div = document.createElement('div');
+  div.style.cssText = 'background:var(--surface);border-radius:var(--r);padding:.75rem;margin-bottom:.5rem';
+  div.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:.5rem">
+      <input type="text" placeholder="縣市 / 隊名（例：臺南市）" value="${team.city||''}"
+        style="flex:1;padding:6px 9px;font-size:13px;border:1px solid var(--border2);border-radius:var(--r);background:var(--card)">
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" ${team.isMine?'checked':''} style="width:auto"> 我方
+      </label>
+      <button class="btn btn-d btn-xs" onclick="this.closest('div[style]').remove()">✕</button>
+    </div>
+    <div class="team-players-rows">
+      ${(team.players||[]).map(p=>teamPlayerRowHTML(p)).join('')}
+    </div>
+    <button class="btn btn-s btn-xs" onclick="addPlayerToTeam(this)" style="margin-top:4px">＋ 加選手</button>`;
+  wrap.appendChild(div);
+}
+
+function teamPlayerRowHTML(p={}) {
+  return `<div style="display:grid;grid-template-columns:1fr 70px auto;gap:5px;margin-bottom:4px;align-items:center">
+    <input type="text" placeholder="選手姓名" value="${p.name||''}"
+      style="padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:5px;background:var(--card)">
+    <input type="text" placeholder="備註" value="${p.position||''}"
+      style="padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:5px;background:var(--card)">
+    <button class="btn btn-d btn-xs" onclick="this.parentElement.remove()">✕</button>
+  </div>`;
+}
+
+function addPlayerToTeam(btn) {
+  const teamDiv = btn.previousElementSibling; // .team-players-rows
+  teamDiv.insertAdjacentHTML('beforeend', teamPlayerRowHTML());
+}
+
+async function saveEventRoster() {
+  const eventName = document.getElementById('opp-event-name').value.trim();
+  if(!eventName) { showToast('請填寫賽事名稱'); return; }
+
+  const teamDivs = document.querySelectorAll('#opp-teams-rows > div');
+  const teams = [...teamDivs].map(div => {
+    const inputs = div.querySelectorAll('input[type="text"]');
+    const city = inputs[0]?.value.trim()||'';
+    const isMine = div.querySelector('input[type="checkbox"]')?.checked||false;
+    const playerRows = div.querySelectorAll('.team-players-rows > div');
+    const players = [...playerRows].map(row => {
+      const ins = row.querySelectorAll('input[type="text"]');
+      return { name: ins[0]?.value.trim()||'', position: ins[1]?.value.trim()||'' };
+    }).filter(p=>p.name);
+    return { city, isMine, players };
+  }).filter(t=>t.city);
+
+  const entry = { event: eventName, teams };
+  if(editEventIdx===-1) opponents.push(entry);
+  else opponents[editEventIdx] = entry;
 
   try {
     await saveOpponents();
     closeOppModal();
     renderOpponents();
     refreshOpponentDropdowns();
-    showToast('選手名單已儲存'); setCloudStatus('online');
+    showToast('賽事名單已儲存');
   } catch(e) {
-    console.error('saveOppCity failed:', e);
-    showToast('儲存失敗：' + (e.message || '無法同步到雲端'));
+    showToast('儲存失敗：'+(e.message||''));
   }
 }
 
-// ── Stats ────────────────────────────────
-function renderIndBout() {
-  const s=indBoutState;
-  const winnerClass=s.winner==='my'?'bout-won':s.winner==='opp'?'bout-lost':s.winner==='draw'?'bout-draw':'';
-  const resultBadge=s.winner==='my'?'<span class="bout-result-badge brb-win">我方勝</span>':
-    s.winner==='opp'?'<span class="bout-result-badge brb-lose">對方勝</span>':
-    s.winner==='draw'?'<span class="bout-result-badge brb-draw">平手</span>':'';
-  const canScore=!s.winner;
-  const roundsHtml=s.rounds.map((r,ri)=>`
-    <div class="round-row">
-      <span class="round-lbl">局${ri+1}</span>
-      <div class="round-hits">${HITS.map(h=>`<span class="hc hc-${h}" style="opacity:${r.myHit===h?1:.35}">${HL[h]}</span>`).join('')}</div>
-      <span class="round-sep">:</span>
-      <div class="round-hits">${HITS.map(h=>`<span class="hc hc-${h}" style="opacity:${r.oppHit===h?1:.35}">${HL[h]}</span>`).join('')}</div>
-      <span class="round-winner" style="color:${r.winner==='my'?'var(--red)':r.winner==='opp'?'var(--blue)':'var(--gray)'}">${r.winner==='my'?'我方':r.winner==='opp'?'對方':r.winner==='neither'?'無效':''}</span>
-    </div>`).join('');
-  document.getElementById('ind-bout-container').innerHTML=`
-    <div class="bout-block ${winnerClass}">
-      <div class="score-display">
-        <div class="score-box"><div class="score-name">我方</div><div class="score-num score-my">${s.myScore}</div></div>
-        <div class="score-sep">:</div>
-        <div class="score-box"><div class="score-name">對方</div><div class="score-num score-opp">${s.oppScore}</div></div>
-      </div>
-      ${resultBadge}
-      ${canScore?`
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:.75rem;margin-top:.5rem">
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-align:center">我方得分部位</div>
-          <div class="hit-tags" style="justify-content:center">${HITS.map(h=>`<span class="ht ht-${h}" onclick="indScoreHit('my','${h}')">${HL[h]}</span>`).join('')}</div></div>
-        <div style="font-size:11px;color:var(--border2)">|</div>
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-align:center">對方得分部位</div>
-          <div class="hit-tags" style="justify-content:center">${HITS.map(h=>`<span class="ht ht-${h}" onclick="indScoreHit('opp','${h}')">${HL[h]}</span>`).join('')}</div></div>
-      </div>
-      <button class="btn btn-s btn-xs" onclick="indScoreInvalid()" style="margin-bottom:.5rem">無效打擊</button>
-      `:''}
-      ${s.winner?`<button class="btn btn-s btn-xs" onclick="resetIndBout()" style="margin-top:.5rem">重置</button>`:''}
-      <div class="rounds-row">${roundsHtml}</div>
-    </div>`;
+function saveOppCity() { saveEventRoster(); } // backward compat
+
+function renderOpponents() {
+  const wrap = document.getElementById('opp-grid-wrap');
+  if(!opponents.length) { wrap.innerHTML='<div class="empty">尚無名單，請新增賽事</div>'; return; }
+  wrap.innerHTML = opponents.map((entry,i) => {
+    // support both new format {event,teams} and old flat format {city,players}
+    const isNew = !!entry.teams;
+    if(isNew) {
+      const teams = entry.teams||[];
+      return `<div class="card" style="margin-bottom:.75rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <div style="font-size:14px;font-weight:700;color:var(--navy)">${entry.event}</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-s btn-xs" onclick="openEventModal(${i})">編輯</button>
+            <button class="btn btn-d btn-xs" onclick="deleteEventEntry(${i})">刪除</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${teams.map(t=>`
+            <div style="background:var(--surface);border-radius:var(--r);padding:6px 10px;min-width:120px">
+              <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:3px">
+                ${t.city}${t.isMine?'<span style="font-size:10px;background:var(--navy);color:var(--gold2);padding:1px 5px;border-radius:3px;margin-left:4px">我方</span>':''}
+              </div>
+              <div style="font-size:11px;color:var(--text3)">${(t.players||[]).map(p=>p.name).join('、')||'尚無選手'}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    } else {
+      // old format: flat city entry
+      return `<div class="card card-sm" style="margin-bottom:.5rem">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:600">${entry.city}</span>
+          <button class="btn btn-d btn-xs" onclick="deleteEventEntry(${i})">刪除</button>
+        </div>
+      </div>`;
+    }
+  }).join('');
 }
 
-function renderIndExt() {
-  if(!indBoutState||indBoutState.mode!=='ext') indBoutState={mode:'ext',myHits:[],oppHits:[],winner:''};
-  const s=indBoutState;
-  const canScore=!s.winner;
-  const myHitsHtml=s.myHits.map(h=>`<span class="hc hc-${h}">${HL[h]}</span>`).join('');
-  const oppHitsHtml=s.oppHits.map(h=>`<span class="hc hc-${h}">${HL[h]}</span>`).join('');
-  const resultBadge=s.winner==='my'?'<span class="bout-result-badge brb-win" style="display:inline-block;margin-bottom:.5rem">我方勝</span>':
-    s.winner==='opp'?'<span class="bout-result-badge brb-lose" style="display:inline-block;margin-bottom:.5rem">對方勝</span>':'';
-  document.getElementById('ind-bout-container').innerHTML=`
-    <div class="bout-block ${s.winner==='my'?'bout-won':s.winner==='opp'?'bout-lost':''}">
-      ${resultBadge}
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:.75rem">
-        <div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">我方得分紀錄</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px">${myHitsHtml||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></div>
-        <div style="color:var(--border2)">|</div>
-        <div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">對方得分紀錄</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px">${oppHitsHtml||'<span style="color:var(--text3);font-size:11px">—</span>'}</div></div>
-      </div>
-      ${canScore?`
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:.5rem">
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-align:center">我方得分</div>
-          <div class="hit-tags" style="justify-content:center">${HITS.map(h=>`<span class="ht ht-${h}" onclick="indExtScore('my','${h}')">${HL[h]}</span>`).join('')}</div></div>
-        <span style="color:var(--border2)">|</span>
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-align:center">對方得分</div>
-          <div class="hit-tags" style="justify-content:center">${HITS.map(h=>`<span class="ht ht-${h}" onclick="indExtScore('opp','${h}')">${HL[h]}</span>`).join('')}</div></div>
-      </div>`:''}
-      ${s.winner?`<button class="btn btn-s btn-xs" onclick="resetIndBout()">重置</button>`:''}
-    </div>`;
+function deleteEventEntry(idx) {
+  if(!confirm('確定刪除此賽事名單？')) return;
+  opponents.splice(idx,1);
+  saveOpponents();
+  renderOpponents();
+  refreshOpponentDropdowns();
 }
 
-function indScoreHit(side,hit) {
-  const s=indBoutState;if(s.winner)return;
-  const r={myHit:'',oppHit:'',winner:''};
-  if(side==='my'){r.myHit=hit;r.winner='my';s.myScore++;}
-  else{r.oppHit=hit;r.winner='opp';s.oppScore++;}
-  s.rounds.push(r);
-  if(s.myScore>=2)s.winner='my';else if(s.oppScore>=2)s.winner='opp';
-  renderIndBout();
+
+
+function renderStats(){
+  const myM=matches.filter(m=>m.addMode!=='obs'&&m.teamResult!=='obs');
+  const tw=myM.filter(m=>m.teamResult==='win').length,tl=myM.filter(m=>m.teamResult==='lose').length;
+  document.getElementById('s-total').textContent=myM.length;
+  document.getElementById('s-win').textContent=tw;
+  document.getElementById('s-lose').textContent=tl;
+  document.getElementById('s-draw').textContent=myM.length-tw-tl;
+  const pW={},pT={};
+  myM.forEach(m=>(m.bouts||[]).forEach(b=>{if(!b.myPlayer)return;pT[b.myPlayer]=(pT[b.myPlayer]||0)+1;if(b.result==='win')pW[b.myPlayer]=(pW[b.myPlayer]||0)+1;}));
+  const ps=Object.keys(pT).sort((a,b)=>(pW[b]||0)-(pW[a]||0));
+  const mxW=Math.max(...ps.map(p=>pW[p]||0),1);
+  document.getElementById('player-stats-list').innerHTML=ps.length
+    ?`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">${ps.slice(0,12).map((p,i)=>{const w=pW[p]||0,t=pT[p],pct=Math.round(w/t*100);return`<div style="display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid #f5f4f0"><span style="font-size:11px;color:var(--text3);width:16px;font-weight:700">${i+1}</span><span style="flex:1;font-size:12px;font-weight:600">${p}</span><div style="width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.round(w/mxW*100)}%;height:100%;background:var(--gold);border-radius:2px"></div></div><span style="font-size:11px;color:var(--text3);width:75px;text-align:right">${w}勝/${t}局 (${pct}%)</span></div>`;}).join('')}</div>`
+    :'<div class="empty">尚無選手資料</div>';
+  const sorted=[...myM].sort((a,b)=>a.date.localeCompare(b.date));
+  if(trendChart){trendChart.destroy();trendChart=null;}
+  if(sorted.length){let cum=0;const cd=sorted.map(m=>{if(m.teamResult==='win')cum++;return cum;});
+    trendChart=new Chart(document.getElementById('trend-chart'),{data:{labels:sorted.map(m=>m.date.slice(5)+' '+(m.oppTeam||'')),datasets:[{type:'bar',data:sorted.map(m=>m.teamResult==='win'?1:m.teamResult==='lose'?-1:0),backgroundColor:sorted.map(m=>m.teamResult==='win'?'#c0392b':m.teamResult==='lose'?'#185fa5':'#aaa'),borderRadius:4,yAxisID:'y',label:'勝負'},{type:'line',data:cd,borderColor:'#c9922a',backgroundColor:'transparent',pointRadius:3,pointBackgroundColor:'#c9922a',tension:.3,yAxisID:'y2',label:'累積'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxRotation:45},grid:{display:false}},y:{position:'left',ticks:{callback:v=>v===1?'勝':v===-1?'負':''},grid:{color:'rgba(0,0,0,.05)'}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#c9922a',font:{size:10}}}}}});}
+  const hc={men:0,do:0,kote:0,tsuki:0};
+  matches.forEach(m=>(m.bouts||[]).forEach(b=>(b.rounds||[]).forEach(r=>{if(r.scoredBy==='my'&&r.myHit&&hc[r.myHit]!==undefined)hc[r.myHit]++;})));
+  if(hitChart){hitChart.destroy();hitChart=null;}
+  hitChart=new Chart(document.getElementById('hit-chart'),{type:'doughnut',data:{labels:['面','胴','小手','突'],datasets:[{data:[hc.men,hc.do,hc.kote,hc.tsuki],backgroundColor:['#1a5276','#d4ac0d','#a93226','#1e6b3c'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:12},padding:10}}}}});
 }
-function indScoreInvalid(){
-  const s=indBoutState;if(s.winner)return;
-  s.rounds.push({myHit:'',oppHit:'',winner:'neither'});
-  if(s.rounds.length>=3&&!s.winner){s.winner=s.myScore>s.oppScore?'my':s.myScore<s.oppScore?'opp':'draw';}
-  renderIndBout();
+
+function renderReferee(){
+  const refMap={};
+  matches.forEach(m=>(m.referees||[]).forEach(r=>{if(!r)return;if(!refMap[r])refMap[r]=[];(m.bouts||[]).forEach(b=>refMap[r].push({...b,myTeam:m.myTeam,oppTeam:m.oppTeam}));}));
+  const refs=Object.keys(refMap);
+  if(!refs.length){document.getElementById('referee-content').innerHTML='<div class="empty">尚無裁判資料</div>';return;}
+  const rows=refs.map(r=>{const bouts=refMap[r];const total=bouts.length,wins=bouts.filter(b=>b.result==='win').length,wr=total?Math.round(wins/total*100):0;const hc2={men:0,do:0,kote:0,tsuki:0};bouts.forEach(b=>(b.rounds||[]).forEach(rnd=>{if(rnd.scoredBy==='my'&&rnd.myHit&&hc2[rnd.myHit]!==undefined)hc2[rnd.myHit]++;if(rnd.scoredBy==='opp'&&rnd.oppHit&&hc2[rnd.oppHit]!==undefined)hc2[rnd.oppHit]++;}));const topHit=Object.entries(hc2).sort((a,b)=>b[1]-a[1]).find(e=>e[1]>0);return`<tr><td><strong>${r}</strong></td><td>${total}場</td><td><strong style="color:${wr>=50?'var(--red)':'var(--blue)'}">${wr}%</strong></td><td>${topHit?`<span class="hc hc-${topHit[0]}">${HL[topHit[0]]}(${topHit[1]}次)</span>`:'—'}</td></tr>`;}).join('');
+  document.getElementById('referee-content').innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="font-size:11px;color:var(--text3)"><th style="padding:8px;border-bottom:1px solid var(--border);text-align:left">裁判</th><th style="padding:8px;border-bottom:1px solid var(--border)">場次</th><th style="padding:8px;border-bottom:1px solid var(--border)">我方勝率</th><th style="padding:8px;border-bottom:1px solid var(--border)">偏好部位</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function indExtScore(side,hit){
-  const s=indBoutState;if(s.winner)return;
-  if(side==='my'){s.myHits.push(hit);s.winner='my';}
-  else{s.oppHits.push(hit);s.winner='opp';}
-  renderIndExt();
-}
-function resetIndBout(){
-  if(indMode==='3bo3') indBoutState={myScore:0,oppScore:0,rounds:[],winner:''},renderIndBout();
-  else indBoutState={mode:'ext',myHits:[],oppHits:[],winner:''},renderIndExt();
+
+function renderIndRecords(){
+  const q=(document.getElementById('ind-filter-text').value||'').toLowerCase();
+  const rf=document.getElementById('ind-filter-result').value;
+  const isAdmin=userRole==='admin';
+  const filtered=indMatches.filter(m=>{
+    const txt=(m.myPlayer+m.oppPlayer+m.event+m.oppOrg+m.note).toLowerCase();
+    return(!q||txt.includes(q))&&(!rf||m.result===rf);
+  });
+  const c=document.getElementById('ind-records-list');
+  if(!filtered.length){c.innerHTML='<div class="empty">尚無個人賽記錄</div>';return;}
+  c.innerHTML=filtered.map(m=>{
+    const rl=m.result==='win'?'勝':m.result==='lose'?'負':'平';
+    const rpClass=m.result==='win'?'rp-win':m.result==='lose'?'rp-lose':'rp-draw';
+    const myHitsHtml=(m.myHits||[]).map(h=>`<span class="hc hc-${h}">${HL[h]}</span>`).join('');
+    const rounds=Array.isArray(m.boutData)?m.boutData:[];
+    const roundsHtml=rounds.filter(r=>r.winner&&r.winner!=='neither').map((r,i)=>`
+      <div class="bout-row" style="font-size:11px">
+        <span class="bn" style="width:15px;height:15px;font-size:9px">${i+1}</span>
+        <span class="bd bd-${r.winner==='my'?'win':r.winner==='opp'?'lose':'draw'}"></span>
+        ${r.myHit?`<span class="hc hc-${r.myHit}">${HL[r.myHit]}</span>`:''}
+        ${r.oppHit?`<span style="color:var(--text3);font-size:10px">對方：</span><span class="hc hc-${r.oppHit}">${HL[r.oppHit]}</span>`:''}
+        <span style="color:${r.winner==='my'?'var(--red)':'var(--blue)'};font-weight:600">${r.winner==='my'?'我方得分':'對方得分'}</span>
+      </div>`).join('');
+    return `<div class="match-card">
+      <div class="mch">
+        <div style="flex:1;min-width:0">
+          <div class="mcm">
+            ${m.event?`<span class="meta-tag meta-event">${m.event}</span>`:''}
+            ${m.stage?`<span class="meta-tag">${m.stage}</span>`:''}
+            <span class="meta-tag">${m.date}</span>
+            ${m.mode==='ext'?'<span class="meta-tag">延長賽制</span>':''}
+          </div>
+          <div class="mct">${m.myPlayer}<span class="vs-t">vs</span>${m.oppPlayer}${m.oppOrg?` (${m.oppOrg})`:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <span class="result-pill ${rpClass}" style="font-size:13px;padding:4px 12px">${rl}</span>
+          ${myHitsHtml?`<div style="margin-top:4px">${myHitsHtml}</div>`:''}
+          ${isAdmin?`<br><button class="btn btn-d btn-xs" onclick="deleteMatch(${m.id},'ind')" style="margin-top:5px">刪除</button>`:''}
+        </div>
+      </div>
+      ${roundsHtml?`<div class="bout-list">${roundsHtml}</div>`:''}
+      ${m.note?`<div class="match-note">${m.note}</div>`:''}
+    </div>`;
+  }).join('');
 }
 
 async function saveIndMatch() {
@@ -1871,183 +2303,46 @@ async function saveIndMatch() {
   clearIndForm(); goPage('ind-records'); renderIndRecords();
 }
 
-function clearIndForm(){
-  ['if-event','if-opp-player','if-opp-org','if-note'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('if-date').value=new Date().toISOString().slice(0,10);
-  document.getElementById('if-stage').value='';
-  document.getElementById('if-my-player').value='';
-  initIndForm();
-}
-
-// ═══════════════════════════════════════════
-// RECORDS RENDER
-// ═══════════════════════════════════════════
-async function deleteMatch(id,collection){
-  if(!confirm('確定刪除？'))return;
-  const res=await api({action:'deleteMatch',matchId:id,collection:collection||''});
-  if(res.success){showToast('已刪除');loadMatches();}else showToast('刪除失敗');
-}
-
-function renderRecords(){
-  const q=(document.getElementById('filter-text').value||'').toLowerCase();
-  const rf=document.getElementById('filter-result').value;
-  const isAdmin=userRole==='admin';
-  const filtered=matches.filter(m=>{
-    const txt=(m.myTeam+m.oppTeam+m.event+m.note+(m.referees||[]).join('')+(m.bouts||[]).map(b=>b.myPlayer+b.oppPlayer).join('')).toLowerCase();
-    return(!q||txt.includes(q))&&(!rf||m.teamResult===rf);
-  });
-  const c=document.getElementById('records-list');
-  if(!filtered.length){c.innerHTML='<div class="empty">尚無比賽記錄</div>';return;}
-  c.innerHTML=filtered.map(m=>{
-    const rl=m.teamResult==='win'?'我方勝':m.teamResult==='lose'?'我方負':'平手';
-    const rpClass=m.teamResult==='win'?'rp-win':m.teamResult==='lose'?'rp-lose':'rp-draw';
-    const boutsHtml=(m.bouts||[]).filter(b=>b.myPlayer||b.oppPlayer).map(b=>{
-      const dot=b.result||'none';
-      const myHits=b.rounds?b.rounds.filter(r=>r.winner==='my').map(r=>`<span class="hc hc-${r.myHit}">${HL[r.myHit]||''}</span>`).join(''):
-        (b.myHits||[]).map(h=>`<span class="hc hc-${h}">${HL[h]}</span>`).join('');
-      return `<div class="bout-row">
-        <span class="bn">${b.order}</span>
-        <span class="bd bd-${dot}"></span>
-        <span class="pn">${b.myPlayer||'—'}</span>
-        <span style="font-size:11px;color:var(--text3)">${b.myScore??''}:${b.oppScore??''}</span>
-        <span style="color:#bbb;font-size:11px">vs</span>
-        <span class="pn">${b.oppPlayer||'—'}</span>
-        ${myHits?`<span style="font-size:11px;color:var(--text3)">得分：</span>${myHits}`:''}
-      </div>`;
-    }).join('');
-    const refsHtml=m.referees&&m.referees.length?`<div class="ref-row">⚖️ 裁判：${m.referees.join('、')}</div>`:'';
-    return `<div class="match-card">
-      <div class="mch">
-        <div style="flex:1;min-width:0">
-          <div class="mcm">
-            ${m.event?`<span class="meta-tag meta-event">${m.event}</span>`:''}
-            ${m.stage?`<span class="meta-tag">${m.stage}</span>`:''}
-            <span class="meta-tag">${m.date}</span>
-          </div>
-          <div class="mct">${m.myTeam}<span class="vs-t">vs</span>${m.oppTeam}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div class="score-big">${m.myTotal}：${m.oppTotal}</div>
-          <span class="result-pill ${rpClass}">${rl}</span>
-          ${isAdmin?`<br><button class="btn btn-d btn-xs" onclick="deleteMatch(${m.id})" style="margin-top:5px">刪除</button>`:''}
-        </div>
+function renderIndBout() {
+  const s=indBoutState;
+  const winnerClass=s.winner==='my'?'bout-won':s.winner==='opp'?'bout-lost':s.winner==='draw'?'bout-draw':'';
+  const resultBadge=s.winner==='my'?'<span class="bout-result-badge brb-win">我方勝</span>':
+    s.winner==='opp'?'<span class="bout-result-badge brb-lose">對方勝</span>':
+    s.winner==='draw'?'<span class="bout-result-badge brb-draw">平手</span>':'';
+  const canScore=!s.winner;
+  const roundsHtml=s.rounds.map((r,ri)=>`
+    <div class="round-row">
+      <span class="round-lbl">局${ri+1}</span>
+      <div class="round-hits">${HITS.map(h=>`<span class="hc hc-${h}" style="opacity:${r.myHit===h?1:.35}">${HL[h]}</span>`).join('')}</div>
+      <span class="round-sep">:</span>
+      <div class="round-hits">${HITS.map(h=>`<span class="hc hc-${h}" style="opacity:${r.oppHit===h?1:.35}">${HL[h]}</span>`).join('')}</div>
+      <span class="round-winner" style="color:${r.winner==='my'?'var(--red)':r.winner==='opp'?'var(--blue)':'var(--gray)'}">${r.winner==='my'?'我方':r.winner==='opp'?'對方':r.winner==='neither'?'無效':''}</span>
+    </div>`).join('');
+  document.getElementById('ind-bout-container').innerHTML=`
+    <div class="bout-block ${winnerClass}">
+      <div class="score-display">
+        <div class="score-box"><div class="score-name">我方</div><div class="score-num score-my">${s.myScore}</div></div>
+        <div class="score-sep">:</div>
+        <div class="score-box"><div class="score-name">對方</div><div class="score-num score-opp">${s.oppScore}</div></div>
       </div>
-      <div class="bout-list">${boutsHtml}</div>
-      ${refsHtml}
-      ${m.note?`<div class="match-note">${m.note}</div>`:''}
-    </div>`;
-  }).join('');
-}
-
-async function deleteIndMatch(id){
-  if(!confirm('確定刪除此個人賽記錄？')) return;
-  try {
-    await api({action:'deleteMatch', matchId:id, collection:'ind'});
-    setCloudStatus('online');
-  } catch(e) {
-    setCloudStatus('offline');
-  }
-  indMatches = indMatches.filter(m=>String(m.id)!==String(id));
-  localStorage.setItem('kendo_ind_matches', JSON.stringify(indMatches));
-  renderIndRecords();
-  showToast('已刪除');
-}
-function renderIndRecords(){
-  const q=(document.getElementById('ind-filter-text').value||'').toLowerCase();
-  const rf=document.getElementById('ind-filter-result').value;
-  const isAdmin=userRole==='admin';
-  const filtered=indMatches.filter(m=>{
-    const txt=(m.myPlayer+m.oppPlayer+m.event+m.oppOrg+m.note).toLowerCase();
-    return(!q||txt.includes(q))&&(!rf||m.result===rf);
-  });
-  const c=document.getElementById('ind-records-list');
-  if(!filtered.length){c.innerHTML='<div class="empty">尚無個人賽記錄</div>';return;}
-  c.innerHTML=filtered.map(m=>{
-    const rl=m.result==='win'?'勝':m.result==='lose'?'負':'平';
-    const rpClass=m.result==='win'?'rp-win':m.result==='lose'?'rp-lose':'rp-draw';
-    const myHitsHtml=(m.myHits||[]).map(h=>`<span class="hc hc-${h}">${HL[h]}</span>`).join('');
-    const rounds=Array.isArray(m.boutData)?m.boutData:[];
-    const roundsHtml=rounds.filter(r=>r.winner&&r.winner!=='neither').map((r,i)=>`
-      <div class="bout-row" style="font-size:11px">
-        <span class="bn" style="width:15px;height:15px;font-size:9px">${i+1}</span>
-        <span class="bd bd-${r.winner==='my'?'win':r.winner==='opp'?'lose':'draw'}"></span>
-        ${r.myHit?`<span class="hc hc-${r.myHit}">${HL[r.myHit]}</span>`:''}
-        ${r.oppHit?`<span style="color:var(--text3);font-size:10px">對方：</span><span class="hc hc-${r.oppHit}">${HL[r.oppHit]}</span>`:''}
-        <span style="color:${r.winner==='my'?'var(--red)':'var(--blue)'};font-weight:600">${r.winner==='my'?'我方得分':'對方得分'}</span>
-      </div>`).join('');
-    return `<div class="match-card">
-      <div class="mch">
-        <div style="flex:1;min-width:0">
-          <div class="mcm">
-            ${m.event?`<span class="meta-tag meta-event">${m.event}</span>`:''}
-            ${m.stage?`<span class="meta-tag">${m.stage}</span>`:''}
-            <span class="meta-tag">${m.date}</span>
-            ${m.mode==='ext'?'<span class="meta-tag">延長賽制</span>':''}
-          </div>
-          <div class="mct">${m.myPlayer}<span class="vs-t">vs</span>${m.oppPlayer}${m.oppOrg?` (${m.oppOrg})`:''}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <span class="result-pill ${rpClass}" style="font-size:13px;padding:4px 12px">${rl}</span>
-          ${myHitsHtml?`<div style="margin-top:4px">${myHitsHtml}</div>`:''}
-          ${isAdmin?`<br><button class="btn btn-d btn-xs" onclick="deleteMatch(${m.id},'ind')" style="margin-top:5px">刪除</button>`:''}
-        </div>
+      ${resultBadge}
+      ${canScore?`
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:.75rem;margin-top:.5rem">
+        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-align:center">我方得分部位</div>
+          <div class="hit-tags" style="justify-content:center">${HITS.map(h=>`<span class="ht ht-${h}" onclick="indScoreHit('my','${h}')">${HL[h]}</span>`).join('')}</div></div>
+        <div style="font-size:11px;color:var(--border2)">|</div>
+        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-align:center">對方得分部位</div>
+          <div class="hit-tags" style="justify-content:center">${HITS.map(h=>`<span class="ht ht-${h}" onclick="indScoreHit('opp','${h}')">${HL[h]}</span>`).join('')}</div></div>
       </div>
-      ${roundsHtml?`<div class="bout-list">${roundsHtml}</div>`:''}
-      ${m.note?`<div class="match-note">${m.note}</div>`:''}
+      <button class="btn btn-s btn-xs" onclick="indScoreInvalid()" style="margin-bottom:.5rem">無效打擊</button>
+      `:''}
+      ${s.winner?`<button class="btn btn-s btn-xs" onclick="resetIndBout()" style="margin-top:.5rem">重置</button>`:''}
+      <div class="rounds-row">${roundsHtml}</div>
     </div>`;
-  }).join('');
 }
 
-// ═══════════════════════════════════════════
-// STATS
-// ═══════════════════════════════════════════
-function renderStats(){
-  const myM=matches.filter(m=>m.addMode!=='obs'&&m.teamResult!=='obs');
-  const tw=myM.filter(m=>m.teamResult==='win').length,tl=myM.filter(m=>m.teamResult==='lose').length;
-  document.getElementById('s-total').textContent=myM.length;
-  document.getElementById('s-win').textContent=tw;
-  document.getElementById('s-lose').textContent=tl;
-  document.getElementById('s-draw').textContent=myM.length-tw-tl;
-  const pW={},pT={};
-  myM.forEach(m=>(m.bouts||[]).forEach(b=>{if(!b.myPlayer)return;pT[b.myPlayer]=(pT[b.myPlayer]||0)+1;if(b.result==='win')pW[b.myPlayer]=(pW[b.myPlayer]||0)+1;}));
-  const ps=Object.keys(pT).sort((a,b)=>(pW[b]||0)-(pW[a]||0));
-  const mxW=Math.max(...ps.map(p=>pW[p]||0),1);
-  document.getElementById('player-stats-list').innerHTML=ps.length
-    ?`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">${ps.slice(0,12).map((p,i)=>{const w=pW[p]||0,t=pT[p],pct=Math.round(w/t*100);return`<div style="display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid #f5f4f0"><span style="font-size:11px;color:var(--text3);width:16px;font-weight:700">${i+1}</span><span style="flex:1;font-size:12px;font-weight:600">${p}</span><div style="width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.round(w/mxW*100)}%;height:100%;background:var(--gold);border-radius:2px"></div></div><span style="font-size:11px;color:var(--text3);width:75px;text-align:right">${w}勝/${t}局 (${pct}%)</span></div>`;}).join('')}</div>`
-    :'<div class="empty">尚無選手資料</div>';
-  const sorted=[...myM].sort((a,b)=>a.date.localeCompare(b.date));
-  if(trendChart){trendChart.destroy();trendChart=null;}
-  if(sorted.length){let cum=0;const cd=sorted.map(m=>{if(m.teamResult==='win')cum++;return cum;});
-    trendChart=new Chart(document.getElementById('trend-chart'),{data:{labels:sorted.map(m=>m.date.slice(5)+' '+(m.oppTeam||'')),datasets:[{type:'bar',data:sorted.map(m=>m.teamResult==='win'?1:m.teamResult==='lose'?-1:0),backgroundColor:sorted.map(m=>m.teamResult==='win'?'#c0392b':m.teamResult==='lose'?'#185fa5':'#aaa'),borderRadius:4,yAxisID:'y',label:'勝負'},{type:'line',data:cd,borderColor:'#c9922a',backgroundColor:'transparent',pointRadius:3,pointBackgroundColor:'#c9922a',tension:.3,yAxisID:'y2',label:'累積'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxRotation:45},grid:{display:false}},y:{position:'left',ticks:{callback:v=>v===1?'勝':v===-1?'負':''},grid:{color:'rgba(0,0,0,.05)'}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#c9922a',font:{size:10}}}}}});}
-  const hc={men:0,do:0,kote:0,tsuki:0};
-  matches.forEach(m=>(m.bouts||[]).forEach(b=>(b.rounds||[]).forEach(r=>{if(r.scoredBy==='my'&&r.myHit&&hc[r.myHit]!==undefined)hc[r.myHit]++;})));
-  if(hitChart){hitChart.destroy();hitChart=null;}
-  hitChart=new Chart(document.getElementById('hit-chart'),{type:'doughnut',data:{labels:['面','胴','小手','突'],datasets:[{data:[hc.men,hc.do,hc.kote,hc.tsuki],backgroundColor:['#1a5276','#d4ac0d','#a93226','#1e6b3c'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:12},padding:10}}}}});
-}
-
-// ── Referee ──────────────────────────────
-function renderReferee(){
-  const refMap={};
-  matches.forEach(m=>(m.referees||[]).forEach(r=>{if(!r)return;if(!refMap[r])refMap[r]=[];(m.bouts||[]).forEach(b=>refMap[r].push({...b,myTeam:m.myTeam,oppTeam:m.oppTeam}));}));
-  const refs=Object.keys(refMap);
-  if(!refs.length){document.getElementById('referee-content').innerHTML='<div class="empty">尚無裁判資料</div>';return;}
-  const rows=refs.map(r=>{const bouts=refMap[r];const total=bouts.length,wins=bouts.filter(b=>b.result==='win').length,wr=total?Math.round(wins/total*100):0;const hc2={men:0,do:0,kote:0,tsuki:0};bouts.forEach(b=>(b.rounds||[]).forEach(rnd=>{if(rnd.scoredBy==='my'&&rnd.myHit&&hc2[rnd.myHit]!==undefined)hc2[rnd.myHit]++;if(rnd.scoredBy==='opp'&&rnd.oppHit&&hc2[rnd.oppHit]!==undefined)hc2[rnd.oppHit]++;}));const topHit=Object.entries(hc2).sort((a,b)=>b[1]-a[1]).find(e=>e[1]>0);return`<tr><td><strong>${r}</strong></td><td>${total}場</td><td><strong style="color:${wr>=50?'var(--red)':'var(--blue)'}">${wr}%</strong></td><td>${topHit?`<span class="hc hc-${topHit[0]}">${HL[topHit[0]]}(${topHit[1]}次)</span>`:'—'}</td></tr>`;}).join('');
-  document.getElementById('referee-content').innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="font-size:11px;color:var(--text3)"><th style="padding:8px;border-bottom:1px solid var(--border);text-align:left">裁判</th><th style="padding:8px;border-bottom:1px solid var(--border)">場次</th><th style="padding:8px;border-bottom:1px solid var(--border)">我方勝率</th><th style="padding:8px;border-bottom:1px solid var(--border)">偏好部位</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-
-// ── Simulate ─────────────────────────────
 function initSimulate(){refreshOpponentDropdowns();updateSim();}
-function getWR(player,myCity,oppCity){const all=[];matches.forEach(m=>{const vs=m.oppTeam===oppCity,w=vs?2:1;(m.bouts||[]).filter(b=>b.myPlayer===player).forEach(b=>all.push({r:b.result,w}));});if(!all.length)return.5;return all.reduce((s,{r,w})=>s+(r==='win'?w:0),0)/all.reduce((s,{w})=>s+w,0);}
-function updateSim(){const mc=document.getElementById('sim-my-team').value,oc=document.getElementById('sim-opp-team').value;const mps=getPlayers(mc).map(p=>p.name),ops=getPlayers(oc).map(p=>p.name);simOrder=[...mps];renderSimList('sim-my-list',simOrder,mc,oc,true);renderSimList('sim-opp-list',ops,oc,mc,false);renderSimResult();}
-function renderSimList(id,players,mc,oc,drag){const el=document.getElementById(id);if(!players.length){el.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">無資料</div>';return;}el.innerHTML=players.map((p,i)=>{const wr=drag?getWR(p,mc,oc):.5,wp=Math.round(wr*100);return`<div class="spi" draggable="${drag}" data-idx="${i}" data-player="${p}" ondragstart="dStart(event)" ondragover="dOver(event)" ondrop="dDrop(event)"><div class="so">${i+1}</div><div style="flex:1"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:600">${p}</span><span style="font-size:11px;color:var(--text3)">${drag?wp+'%':''}</span></div>${drag?`<div class="wb"><div class="wbf" style="width:${wp}%"></div></div>`:''}</div></div>`;}).join('');}
-function renderSimResult(){const mc=document.getElementById('sim-my-team').value,oc=document.getElementById('sim-opp-team').value;const el=document.getElementById('sim-result');if(!oc||!simOrder.length){el.innerHTML='<div class="empty" style="padding:1rem;font-size:12px">排好陣容後顯示</div>';return;}const rs=simOrder.slice(0,5).map(p=>getWR(p,mc,oc));const combos=[[0,1,2],[0,1,3],[0,1,4],[0,2,3],[0,2,4],[0,3,4],[1,2,3],[1,2,4],[1,3,4],[2,3,4]];let wp=0;combos.forEach(c=>{let p=1;for(let i=0;i<5;i++)p*=c.includes(i)?rs[i]:(1-rs[i]);wp+=p;});wp=Math.min(.99,Math.max(.01,wp));const pct=Math.round(wp*100);const col=pct>=60?'var(--red)':pct>=40?'var(--gold)':'var(--blue)';el.innerHTML=`<div style="text-align:center;padding:.5rem 0;margin-bottom:.875rem"><div style="font-size:11px;color:var(--text3);margin-bottom:.5rem">對陣 ${oc} 預測勝率</div><div style="font-size:44px;font-weight:700;color:${col};line-height:1">${pct}%</div></div>${simOrder.slice(0,5).map((p,i)=>{const r=rs[i],rp=Math.round(r*100);return`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px"><span style="font-size:11px;color:var(--text3);width:12px">${i+1}</span><span style="font-size:12px;font-weight:600;flex:1">${p}</span><div style="width:55px;height:3px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${rp}%;height:100%;background:${r>=.5?'var(--red)':'var(--blue)'};border-radius:2px"></div></div><span style="font-size:11px;color:var(--text3);width:26px;text-align:right">${rp}%</span></div>`;}).join('')}`;}
-let dragSrc=-1;
-function dStart(e){dragSrc=+e.currentTarget.dataset.idx;e.currentTarget.classList.add('dragging');}
-function dOver(e){e.preventDefault();e.currentTarget.classList.add('dragover');}
-function dDrop(e){e.preventDefault();const ti=+e.currentTarget.dataset.idx;document.querySelectorAll('.spi').forEach(el=>el.classList.remove('dragging','dragover'));if(dragSrc===ti)return;const arr=[...simOrder];const[rm]=arr.splice(dragSrc,1);arr.splice(ti,0,rm);simOrder=arr;const mc=document.getElementById('sim-my-team').value,oc=document.getElementById('sim-opp-team').value;renderSimList('sim-my-list',simOrder,mc,oc,true);renderSimResult();}
-function autoSortSim(){const mc=document.getElementById('sim-my-team').value,oc=document.getElementById('sim-opp-team').value;if(!oc){showToast('請先選擇對手');return;}simOrder.sort((a,b)=>getWR(b,mc,oc)-getWR(a,mc,oc));renderSimList('sim-my-list',simOrder,mc,oc,true);renderSimResult();showToast('已自動排序');}
 
-// ── Export ───────────────────────────────
 function exportCSV(){
   if(!matches.length){showToast('尚無資料');return;}
   const hdr=['類型','日期','賽事','我方','對手','整體結果','場序','我方選手','對手選手','本場結果','局序','我方攻擊','對方攻擊','裁判判決','應對模式'];
@@ -2062,6 +2357,7 @@ function exportCSV(){
   const csv='﻿'+[hdr.join(','),...rows].join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`劍道情蒐_${new Date().toISOString().slice(0,10)}.csv`;a.click();showToast('CSV 已下載');
 }
+
 function exportReport(){
   if(!matches.length){showToast('尚無資料');return;}
   const tw=matches.filter(m=>m.addMode!=='obs'&&m.teamResult==='win').length;
@@ -2295,25 +2591,6 @@ body::after{
   const w=window.open('','_blank');w.document.write(html);w.document.close();showToast('Ctrl+P 列印 PDF');
 }
 
-// ── Toast ────────────────────────────────
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-
-// ── JSON Backup / Restore ─────────────────
-function exportJSON(){
-  const data = {
-    version: 2,
-    exportedAt: new Date().toISOString(),
-    matches: JSON.parse(localStorage.getItem('kendo_matches_v6')||'[]'),
-    indMatches: JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]'),
-    opponents: JSON.parse(localStorage.getItem('kendo_opp_v4')||'[]'),
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `劍道備份_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  showToast('JSON 備份已下載');
-}
 function importJSON(event) {
   const file = event.target.files[0];
   if(!file) return;
@@ -2403,47 +2680,6 @@ function importJSON(event) {
   reader.readAsText(file);
 }
 
-// ── Schedule Image Import ────────────────
-let scheduleImageBase64 = null;
-let scheduleImageType = 'image/jpeg';
-
-function handleScheduleFile(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  loadScheduleImage(file);
-}
-function handleScheduleDrop(event) {
-  event.preventDefault();
-  document.getElementById('schedule-drop-zone').style.borderColor='var(--border2)';
-  const file = event.dataTransfer.files[0];
-  if(file && file.type.startsWith('image/')) loadScheduleImage(file);
-}
-document.addEventListener('paste', function(e) {
-  const items = e.clipboardData?.items;
-  if(!items) return;
-  for(const item of items) {
-    if(item.type.startsWith('image/')) {
-      const file = item.getAsFile();
-      if(file) { loadScheduleImage(file); goPage('schedule'); }
-    }
-  }
-});
-function loadScheduleImage(file) {
-  scheduleImageType = file.type || 'image/jpeg';
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    scheduleImageBase64 = dataUrl.split(',')[1];
-    const preview = document.getElementById('schedule-preview-img');
-    preview.src = dataUrl;
-    document.getElementById('schedule-preview-wrap').style.display = 'block';
-    document.getElementById('schedule-parse-btn').style.display = 'inline-flex';
-    document.getElementById('schedule-result-wrap').style.display = 'none';
-    document.getElementById('schedule-parse-status').textContent = '圖片已載入，點擊 AI 解析';
-  };
-  reader.readAsDataURL(file);
-}
-
 async function parseSchedule() {
   if(!scheduleImageBase64) { showToast('請先上傳圖片'); return; }
   const btn = document.getElementById('schedule-parse-btn');
@@ -2517,85 +2753,6 @@ async function parseSchedule() {
   }
 }
 
-let _lastScheduleData = null;
-function renderScheduleResult(data) {
-  _lastScheduleData = data;
-  const wrap = document.getElementById('schedule-result-wrap');
-  const list = document.getElementById('schedule-result-list');
-  const matches = data.matches || [];
-  if(!matches.length) { list.innerHTML='<div class="empty">未識別到比賽場次</div>'; wrap.style.display='block'; return; }
-  list.innerHTML = matches.map((m,i) => {
-    const resultLabel = m.result==='A勝'?m.teamA+'勝':m.result==='B勝'?m.teamB+'勝':'平手';
-    const boutRows = (m.bouts||[]).filter(b=>b.playerA||b.playerB).map(b=>`
-      <div style="display:flex;gap:8px;align-items:center;font-size:11px;padding:3px 0;border-bottom:1px solid #f5f4f0">
-        <span style="color:var(--text3);width:14px">${b.order}</span>
-        <span style="flex:1;font-weight:600">${b.playerA||'—'}</span>
-        <span style="font-size:11px;font-weight:700;color:var(--navy)">${b.scoreA}:${b.scoreB}</span>
-        <span style="flex:1;text-align:right">${b.playerB||'—'}</span>
-      </div>`).join('');
-    return `<div class="card card-sm" style="margin-bottom:.75rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div>
-          <div style="font-size:13px;font-weight:700">${m.teamA} <span style="color:#bbb;font-weight:400;font-size:11px">vs</span> ${m.teamB}</div>
-          ${data.event?`<div style="font-size:11px;color:var(--text3)">${data.event} ${data.stage||''}</div>`:''}
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:20px;font-weight:700;color:var(--navy)">${m.scoreA}：${m.scoreB}</div>
-          <span style="font-size:11px;color:var(--text2)">${resultLabel}</span>
-        </div>
-      </div>
-      ${boutRows}
-      <div style="margin-top:.6rem;display:flex;gap:6px">
-        <button class="btn btn-p btn-sm" onclick="importScheduleMatchMode(${i},'mine')">
-          帶入新增（我方比賽）
-        </button>
-        <button class="btn btn-obs btn-sm" onclick="importScheduleMatchMode(${i},'obs')">
-          帶入（觀察賽）
-        </button>
-      </div>
-    </div>`;
-  }).join('');
-  wrap.style.display = 'block';
-}
-
-// importScheduleMatch wrappers removed - using importScheduleMatchMode directly
-function importScheduleMatchMode(matchIdx, mode) {
-  const data = _lastScheduleData; if(!data) return;
-  const m = (data.matches||[])[matchIdx];
-  if(!m) return;
-  startAdd(mode);
-  setTimeout(() => {
-    if(data.date) document.getElementById('f-date').value = data.date;
-    if(data.event) document.getElementById('f-event').value = data.event;
-    if(data.stage) document.getElementById('f-stage').value = data.stage;
-    // Set teams
-    const myT = document.getElementById('f-my-team');
-    const oppT = document.getElementById('f-opp-team');
-    // Try to match existing cities
-    const cities = getAllCities();
-    const matchA = cities.find(c=>c.includes(m.teamA)||m.teamA.includes(c));
-    const matchB = cities.find(c=>c.includes(m.teamB)||m.teamB.includes(c));
-    if(matchA) myT.value = matchA; else myT.value = m.teamA;
-    if(matchB) oppT.value = matchB; else oppT.value = m.teamB;
-    onTeamChange();
-    // Set referees
-    (m.referees||[]).forEach((r,i)=>{
-      const el = document.getElementById(`f-ref${i+1}`);
-      if(el) el.value = r;
-    });
-    // Pre-fill player names in bouts
-    (m.bouts||[]).forEach((b,i)=>{
-      if(i>=5) return;
-      boutState[i]._myPlayer = b.playerA||'';
-      boutState[i]._oppPlayer = b.playerB||'';
-      setTimeout(()=>renderBoutBlock(i), 50);
-    });
-    showToast('已帶入，請選擇選手並補充對戰記錄');
-  }, 100);
-  goPage('add');
-}
-
-// ── Cloud Status Indicator ──────────────
 function setCloudStatus(status, detail) {
   const bar = document.getElementById('cloud-status-bar');
   const txt = document.getElementById('cloud-status-text');
@@ -2606,7 +2763,6 @@ function setCloudStatus(status, detail) {
   if(status === 'checking') txt.textContent = detail || '連線中...';
 }
 
-// 真實連線測試 - ping GAS 並確認回傳合法 JSON
 async function verifyCloudConnection() {
   setCloudStatus('checking', '驗證雲端連線...');
   try {
@@ -2624,10 +2780,14 @@ async function verifyCloudConnection() {
   }
 }
 
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+
 // ── Boot ─────────────────────────────────
 // Always show login first, then check session
 document.getElementById('login-screen').style.display='flex';
 if(token&&userRole) showApp();
+
 </script>
 </body>
 </html>
