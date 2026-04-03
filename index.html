@@ -607,7 +607,12 @@ body::after{
       </div>
 
       <div class="card">
-        <div class="sec-lbl">各場對戰記錄（點擊部位記分）</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <div class="sec-lbl" style="margin:0">各場對戰記錄（點擊部位記分）</div>
+          <button class="btn btn-s btn-xs" id="btn-add-rep" onclick="addRepBout()">
+            ⚔️ 加代表戰
+          </button>
+        </div>
         <div id="bouts-container"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.875rem">
           <button class="btn btn-s btn-sm" onclick="clearTeamForm()">清除</button>
@@ -1080,6 +1085,7 @@ function goPage(id) {
   if(id==='report') { refreshOpponentDropdowns(); renderReport(); }
   if(id==='ind-records') renderIndRecords();
   if(id==='ind-add') { initIndForm(); const fd=document.getElementById('if-date'); if(fd&&!fd.value) fd.value=new Date().toISOString().slice(0,10); }
+  if(id==='add') { updateRepBoutBtn(); }
   // schedule page - no extra init needed
 }
 
@@ -1239,10 +1245,27 @@ function startAdd(mode) {
   if(lblMy) lblMy.textContent = mode==='obs' ? '紅方（縣市）' : '我方隊伍（縣市）';
   if(lblOpp) lblOpp.textContent = mode==='obs' ? '白方（縣市）' : '對手隊伍（縣市）';
   boutState = Array.from({length:5},()=>({myScore:0,oppScore:0,rounds:[],winner:'',_myPlayer:'',_oppPlayer:''}));
-  refreshOpponentDropdowns(); // 重新整理，確保觀察賽紅方可選全部縣市
+  refreshOpponentDropdowns();
   document.getElementById('bouts-container').innerHTML='';
   for(let i=0;i<5;i++) renderBoutBlock(i);
+  updateRepBoutBtn();
   goPage('add');
+}
+
+function updateRepBoutBtn() {
+  const btn = document.getElementById('btn-add-rep');
+  if(!btn) return;
+  const noRep = boutState.length === 5;
+  const shouldShow = addMode !== 'obs' && noRep;
+  btn.style.display = shouldShow ? 'inline-flex' : 'none';
+}
+
+function addRepBout() {
+  if(boutState.length >= 6) return;
+  boutState.push({myScore:0,oppScore:0,rounds:[],winner:'',_myPlayer:'',_oppPlayer:'',isRep:true});
+  renderBoutBlock(5);
+  document.getElementById('btn-add-rep').style.display='none';
+  showToast('已新增代表戰');
 }
 function initTeamForm() {
   boutState = Array.from({length:5},()=>({myScore:0,oppScore:0,rounds:[],winner:'',_myPlayer:'',_oppPlayer:''}));
@@ -1286,7 +1309,7 @@ function renderBoutBlock(i) {
   block.id=`bout-block-${i}`;
   block.innerHTML=`
     <div class="bout-header">
-      <div class="bout-order">${i+1}</div>
+      <div class="bout-order" style="${s.isRep?'background:var(--gold);color:var(--navy3)':''}">${ s.isRep?'代':i+1}</div>
       <div class="bout-names">
         <select id="bout-my-p-${i}"
           style="width:110px;padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--card)">
@@ -1333,6 +1356,8 @@ function renderBoutBlock(i) {
   const existing=document.getElementById(`bout-block-${i}`);
   if(existing) existing.replaceWith(block);
   else document.getElementById('bouts-container').appendChild(block);
+  // Update 代表戰 button visibility after each render
+  updateRepBoutBtn();
 }
 
 function scoreHit(boutIdx, side, hit) {
@@ -1439,9 +1464,19 @@ async function saveMatch() {
     result:s.winner==='my'?'win':s.winner==='opp'?'lose':s.winner==='draw'?'draw':'',
     rounds:s.rounds
   }));
-  const myWins=bouts.filter(b=>b.result==='win').length;
-  const oppWins=bouts.filter(b=>b.result==='lose').length;
-  const teamResult=addMode==='obs'?'obs':myWins>oppWins?'win':myWins<oppWins?'lose':'draw';
+  const regularBouts = bouts.slice(0,5);
+  const repBout = bouts.length>5 ? bouts[5] : null;
+  const myWins=regularBouts.filter(b=>b.result==='win').length;
+  const oppWins=regularBouts.filter(b=>b.result==='lose').length;
+  // 若有代表戰，代表戰結果決定勝負
+  let teamResult;
+  if(addMode==='obs') {
+    teamResult='obs';
+  } else if(repBout && repBout.result) {
+    teamResult = repBout.result==='win'?'win':repBout.result==='lose'?'lose':'draw';
+  } else {
+    teamResult = myWins>oppWins?'win':myWins<oppWins?'lose':'draw';
+  }
   const match={
     date, myTeam, oppTeam, teamResult, myTotal:myWins, oppTotal:oppWins, addMode,
     event:document.getElementById('f-event').value.trim(),
@@ -2781,6 +2816,23 @@ async function verifyCloudConnection() {
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+
+function exportJSON(){
+  const data = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    matches: JSON.parse(localStorage.getItem('kendo_matches_v6')||'[]'),
+    indMatches: JSON.parse(localStorage.getItem('kendo_ind_matches')||'[]'),
+    opponents: JSON.parse(localStorage.getItem('kendo_opp_v4')||'[]'),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `劍道備份_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('JSON 備份已下載');
+}
 
 
 // ── Boot ─────────────────────────────────
